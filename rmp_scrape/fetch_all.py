@@ -29,7 +29,6 @@ class RateMyProfApi:
         """
         Returns the number of professor results for the given school_id.
         """
-
         url = 'https://www.ratemyprofessors.com/search/teachers?query=*&sid=' + \
             str(self.school_id)
 
@@ -60,11 +59,21 @@ class RateMyProfApi:
         # Load the JSON data into a dictionary
         json_data = json.loads(data.group(1))
 
-        key = 'client:root:newSearch:__TeacherSearchPagination_teachers_connection(query:{"fallback":true,"schoolID":"U2Nob29sLTEyNTY=","text":""})'
+        # for key in json_data.keys():
+        #     print("\nkey: ", key)
+        #     print(json_data[key])
+
+        for key in json_data['client:root'].keys():
+            # print("\nkey: ", key)
+            # print(json_data['client:root'][key])
+            if 'node(id:"' in key:
+                schoolID = key[9:-2]
+
+        key = 'client:root:newSearch:__TeacherSearchPagination_teachers_connection(query:{"fallback":true,"schoolID":"' + \
+            schoolID + '","text":""})'
         num_profs = json_data[key]['resultCount']
 
         return int(num_profs)
-
 
     def scrape_professors(self, testing=False):
         """
@@ -74,27 +83,28 @@ class RateMyProfApi:
         if testing:
             print("-------ScrapeProfessors--------")
             print("Scraping professors from RateMyProfessors.com...")
-            print("University ID: ", self.UniversityId)
+            print("University SID: ", self.school_id)
 
         professors = dict()
-        
-        num_of_prof = self.num_professors() # The number of professors with RMP records associated with this university school_id.
+
+        # The number of professors with RMP records associated with this university school_id.
+        num_of_prof = self.num_professors()
 
         # RMP returns the total number of professors when a page is requested multiple times, so we need to re-run the function until we get the correct number.
 
         # If the number of professors is greater than 1 million, re-run the function.
-        while(num_of_prof > 1000000): 
-            num_of_prof = self.num_professors() # Re-run the function to get the correct number of professors.
-
-        print("Number of Professors Total: ", num_of_prof)
-
-
+        while (num_of_prof > 1000000):
+            # Re-run the function to get the correct number of professors.
+            num_of_prof = self.num_professors()
 
         if testing:
             print("Number of Professors Total: ", num_of_prof)
 
         # The API returns 20 professors per page.
         num_of_pages = math.ceil(num_of_prof/20)
+
+        print("Number of Pages: ", num_of_pages, " (" + str(num_of_prof) + " professors/20 professors per page)")
+
         for i in range(1, num_of_pages + 1):  # the loop insert all professor into list
 
             # first RMP seed 1256
@@ -142,8 +152,7 @@ class RateMyProfApi:
 if __name__ == "__main__":
     # # Testing
     uw_school_id_1 = RateMyProfApi(1256)
-
-    uw_school_id_1.scrape_professors(testing=False)
+    uw_school_id_1.scrape_professors(testing=True)
 
     # uw_school_id_2 = RateMyProfApi(18418)
-    # uw_school_id_2.scrape_professors(testing=True)
+    # uw_school_id_2.scrape_professors(testing=False)
