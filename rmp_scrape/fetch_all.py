@@ -1,17 +1,37 @@
-__author__ = "Peter Bryant, Jarvis Jia"
-__credits__ = ["Peter Bryant", "Jarvis Jia",
-               "Bryan Li", "Swathi Annamaneni", "Aidan Shine"]
+__author__ = "Peter Bryant"
 __version__ = "1.0.0"
 __maintainer__ = "Peter Bryant"
 
+# Standard library imports
 import requests
 import json
 import math
-from bs4 import BeautifulSoup
-from pprint import pprint
-import re
+
+# Local imports
 from professor import Professor
 
+# Web scraping imports
+import re
+from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.common.keys import Keys # Give access to "enter" and "space" key to 
+PATH = "C:\Program Files (x86)\chromedriver.exe" # Path to WebDriver
+driver = webdriver.Chrome(PATH) # Create a new instance of the Chrome driver
+driver.get("https://www.ratemyprofessors.com/") # Navigate to the page
+
+# Returns object that corresponds to search bar
+search = driver.find_element_by_id("search")
+
+search.send_keys("test")
+search.send_keys(Keys.RETURN) 
+
+print(driver.page_source) # Print the page source
+
+# Print all HTML elements with the script tag
+scripts = driver.find_elements_by_tag_name("script")
+
+driver.close() # Close the browser
+driver.quit() # Quit the WebDriver and close all associated windows
 
 class RateMyProfApi:
     """
@@ -54,7 +74,7 @@ class RateMyProfApi:
         professor_script = professor_script.lstrip()
 
         # Get the JSON data from window.__RELAY_STORE__ = part of the string
-        data = re.search(r"window\.__RELAY_STORE__ = (.+);", professor_script)
+        data = re.search(r"window\.__RELAY_STORE__ = (.+);", professor_script) 
 
         # Load the JSON data into a dictionary
         json_data = json.loads(data.group(1))
