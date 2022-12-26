@@ -58,7 +58,7 @@ class RateMyProfApi:
         """
 
         if testing:
-            print("--------------------num_professors()--------------------")
+            print("-----------------num_professors()-------------------")
             start = time.time()
 
         # Check RMP page error
@@ -69,8 +69,7 @@ class RateMyProfApi:
             error_string = 'No professors with "" in their name'
             if error_string in error_message:
                 print(
-                    "***WARNING: RateMyProfessor error, returned total number of professors. This is likely an error.")
-                print("Returning error code 0.***")
+                    "***WARNING: RateMyProfessor error, returned total number of professors on RMP. Returning error code 0.***")
                 return 0
         except:
             pass
@@ -86,7 +85,7 @@ class RateMyProfApi:
             end = time.time()
             print("Number of professors: ", num_profs)
             print("num_professors() finished in ", end - start, " seconds.")
-            print("-------------------------------------------------")
+            print("----------------------------------------------------")
         return num_profs
 
     def scrape_professors(self, testing=False):
@@ -95,7 +94,7 @@ class RateMyProfApi:
         Return: true if successful, false if not.
         """
         if testing:
-            print("---------------scrape_professors()-----------------")
+            print("-----------------scrape_professors()----------------")
 
             print("Scraping professors from RateMyProfessors.com at \nURL: ", self.url)
             print("University SID: ", self.school_id)
@@ -129,6 +128,9 @@ class RateMyProfApi:
 
                 print("Retrying num_professors()...")
 
+        if testing:
+            print("-------------scrape_professors() cont.--------------")
+
         # Show more button
         Xpath = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[4]/button'
         element = self.driver.find_element(
@@ -149,10 +151,10 @@ class RateMyProfApi:
 
         professor_div_a_tags = BeautifulSoup(
             professor_div, 'html.parser').find_all('a')  # Get all a tags
-        for a in professor_div_a_tags:
-            print(a['href'])
+        for i in range(1, len(professor_div_a_tags)):
+            print(professor_div_a_tags[i]['href'])
+            Xpath = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[3]/a[' + str(i) + ']/div/div[2]/div[1]'
 
-            Xpath = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[3]/a[1]/div/div[2]/div[1]'
             element = self.driver.find_element(
                 By.XPATH, Xpath)  # Find the professor name
             professor_name = element.get_attribute('innerHTML')
@@ -170,7 +172,7 @@ class RateMyProfApi:
         if testing:
             end = time.time()
             print("scrape_professors() finished in ", end - start, " seconds.")
-            print("-------------------------------------------------")
+            print("----------------------------------------------------")
 
         return True
 
@@ -196,7 +198,7 @@ class RateMyProfApi:
 if __name__ == "__main__":
     testing = True
     if testing:
-        print("----------------------TESTING----------------------")
+        print("----------------------TESTING-----------------------")
         start = time.time()
     uw_school_id_1 = RateMyProfApi(config.sid)
     uw_school_id_1.scrape_professors(testing=testing)
