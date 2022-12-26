@@ -19,12 +19,15 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 
-service = Service("C:\Program Files (x86)\chromedriver.exe")  # Path to WebDriver
+# Path to WebDriver
+service = Service("C:\Program Files (x86)\chromedriver.exe")
+
 
 class RateMyProfApi:
     """
     RateMyProfAPI class contains functions to scrape professor data from RateMyProfessors.com
     """
+
     def __init__(self, school_id):
         """
         Constructor for RateMyProfApi class.
@@ -48,7 +51,7 @@ class RateMyProfApi:
         driver = webdriver.Chrome(service=service, options=options)
         driver.get(url)                  # Navigate to the page
 
-        Xpath='//h1[@data-testid="pagination-header-main-results"]'
+        Xpath = '//h1[@data-testid="pagination-header-main-results"]'
 
         element = driver.find_element(By.XPATH, Xpath)
 
@@ -57,7 +60,6 @@ class RateMyProfApi:
 
         driver.close()  # Close the browser
         driver.quit()  # Quit the WebDriver and close all associated windows
-
 
         return int(num_profs)
 
@@ -91,29 +93,30 @@ class RateMyProfApi:
         driver = webdriver.Chrome(service=service, options=options)
         driver.get(url)                  # Navigate to the page
 
-        Xpath='//h1[@data-testid="pagination-header-main-results"]'
+        element = driver.find_element(
+            By.CLASS_NAME, 'TeacherCard__StyledTeacherCard-syjs0d-0 dLJIlx')
 
-        element = driver.find_element(By.XPATH, Xpath)
+        print(element.text)
+
+        # <a class="TeacherCard__StyledTeacherCard-syjs0d-0 dLJIlx" href="/professor?tid=47"><div class="TeacherCard__InfoRatingWrapper-syjs0d-3 kcbPEB"><div class="TeacherCard__NumRatingWrapper-syjs0d-2 joEEbw"><div class="CardNumRating__StyledCardNumRating-sc-17t4b9u-0 eWZmyX"><div class="CardNumRating__CardNumRatingHeader-sc-17t4b9u-1 fVETNc">QUALITY</div><div class="CardNumRating__CardNumRatingNumber-sc-17t4b9u-2 gcFhmN">4.1</div><div class="CardNumRating__CardNumRatingCount-sc-17t4b9u-3 jMRwbg">38 ratings</div></div></div><div class="TeacherCard__CardInfo-syjs0d-1 fkdYMc"><div class="CardName__StyledCardName-sc-1gyrgim-0 cJdVEK">John Swain</div><div class="CardSchool__StyledCardSchool-sc-19lmz2k-2 gSTNdb"><div class="CardSchool__Department-sc-19lmz2k-0 haUIRO">Physics</div><div class="CardSchool__School-sc-19lmz2k-1 iDlVGM">Northeastern University</div></div><div class="CardFeedback__StyledCardFeedback-lq6nix-0 frciyA"><div class="CardFeedback__CardFeedbackItem-lq6nix-1 fyKbws"><div class="CardFeedback__CardFeedbackNumber-lq6nix-2 hroXqf">100%</div> would take again</div><div class="VerticalSeparator-sc-1l9ngcr-0 enhFnm"></div> <div class="CardFeedback__CardFeedbackItem-lq6nix-1 fyKbws"><div class="CardFeedback__CardFeedbackNumber-lq6nix-2 hroXqf">2</div> level of difficulty</div></div></div></div><button class="TeacherBookmark__StyledTeacherBookmark-sc-17dr6wh-0 kebbUY" type="button"><img src="/static/media/bookmark-default.b056b070.svg" alt="Bookmark" data-tooltip="true" data-tip="Save Professor" data-for="GLOBAL_TOOLTIP" currentitem="false"></button></a>
 
         return 0
-        for i in range(1, num_of_pages + 1):  # the loop insert all professor into list
 
-           
-            # iterate through the professor
-            for json_professor in json_response["professors"]:
+        # iterate through the professor
+        for json_professor in json_response["professors"]:
 
-                # load in professor information
-                professor = Professor(
-                    json_professor["tid"],
-                    json_professor["tFname"],
-                    json_professor["tLname"],
-                    json_professor["tNumRatings"],
-                    json_professor["overall_rating"],
-                    json_professor["rating_class"],
-                    json_professor["tDept"]
-                )
+            # load in professor information
+            professor = Professor(
+                json_professor["tid"],
+                json_professor["tFname"],
+                json_professor["tLname"],
+                json_professor["tNumRatings"],
+                json_professor["overall_rating"],
+                json_professor["rating_class"],
+                json_professor["tDept"]
+            )
 
-                professors[professor.ratemyprof_id] = professor
+            professors[professor.ratemyprof_id] = professor
 
         if testing:
             print("Professors actually added: ", str(len(professors)))
