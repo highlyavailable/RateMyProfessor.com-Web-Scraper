@@ -1,26 +1,29 @@
 __author__ = "Peter Bryant"
 __version__ = "1.0.0"
 __maintainer__ = "Peter Bryant"
+__email__ = "pbryant2@wisc.edu"
+__status__ = "Development"
 
 # Standard library imports
 import requests
 import json
 import math
+import time
 
 # Local imports
 from professor import Professor
 
 # Web scraping imports
-import re
-from bs4 import BeautifulSoup
-from selenium import webdriver
-# Give access to "enter" and "space" key to
-from selenium.webdriver.common.keys import Keys
+import re                                               # Regular expressions
+from bs4 import BeautifulSoup                           # BeautifulSoup
+from selenium import webdriver                          # Selenium
+from selenium.webdriver.common.keys import Keys         # Selenium: Keyboard keys
+# Selenium: Find elements by
 from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.service import Service   # Selenium: Path to WebDriver
 
-# Path to WebDriver
-service = Service("C:\Program Files (x86)\chromedriver.exe")
+# Configuration imports
+import config
 
 
 class RateMyProfApi:
@@ -35,72 +38,141 @@ class RateMyProfApi:
         """
         self.school_id = school_id  # Parameter for the school ID
 
+        self.url = 'https://www.ratemyprofessors.com/search/teachers?query=*&sid=' + \
+            str(self.school_id)
+
+        self.options = webdriver.ChromeOptions()  # Create a new Chrome session
+
+        # Ignore SSL certificate errors
+        self.options.add_argument('--ignore-certificate-errors')
+        self.options.add_argument('--ignore-ssl-errors')
+        self.options.add_argument('--ignore-certificate-errors-spki-list')
+        self.options.add_argument('log-level=3')  # Ignore warnings
+
+        # Path to WebDriver
+        self.service = Service(config.path_to_webdriver)
+
     def num_professors(self, testing=False):
         """
         Returns the number of professor results for the given school_id.
         """
-        url = 'https://www.ratemyprofessors.com/search/teachers?query=*&sid=' + \
-            str(self.school_id)
 
-        options = webdriver.ChromeOptions()
-        options.add_argument('--ignore-certificate-errors')
-        options.add_argument('--ignore-ssl-errors')
-        options.add_argument('--ignore-certificate-errors-spki-list')
-        options.add_argument('log-level=3')
+        if testing:
+            print("--------------------num_professors()--------------------")
+            start = time.time()
 
-        driver = webdriver.Chrome(service=service, options=options)
-        driver.get(url)                  # Navigate to the page
+        # Check RMP page error
+        try:
+            Xpath = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[1]/div/div/div'
+            element = self.driver.find_element(By.XPATH, Xpath)
+            error_message = element.text.strip().replace("\n", "")
+            error_string = 'No professors with "" in their name'
+            if error_string in error_message:
+                print(
+                    "***WARNING: RateMyProfessor error, returned total number of professors. This is likely an error.")
+                print("Returning error code 0.***")
+                return 0
+        except:
+            pass
 
+        # Find the number of professors
         Xpath = '//h1[@data-testid="pagination-header-main-results"]'
-
-        element = driver.find_element(By.XPATH, Xpath)
+        element = self.driver.find_element(By.XPATH, Xpath)
 
         # Save the first word from the element text, which is the number of professors.
-        num_profs = element.text.split()[0]
+        num_profs = int(element.text.split()[0])
 
-        driver.close()  # Close the browser
-        driver.quit()  # Quit the WebDriver and close all associated windows
-
-        return int(num_profs)
+        if testing:
+            end = time.time()
+            print("Number of professors: ", num_profs)
+            print("num_professors() finished in ", end - start, " seconds.")
+            print("-------------------------------------------------")
+        return num_profs
 
     def scrape_professors(self, testing=False):
         """
-        Scrapes all professors from the school with the given school_id. 
-        Return: a list of Professor objects, defined in professor.py.
+        Scrapes all professors from the school with the given school_id and populates a JSON file with the data.
+        Return: true if successful, false if not.
         """
         if testing:
-            print("-------ScrapeProfessors--------")
-            print("Scraping professors from RateMyProfessors.com...")
+            print("---------------scrape_professors()-----------------")
+
+            print("Scraping professors from RateMyProfessors.com at \nURL: ", self.url)
             print("University SID: ", self.school_id)
+            start = time.time()
 
-        professors = dict()
+        # Number of professors with RMP records associated with the given university SID.
+        num_profs = 0
 
-        # The number of professors with RMP records associated with this university school_id.
-        num_of_prof = self.num_professors()
+        # Restart scrape_professors() if the number of professors is 0.
+        timeout = time.time()
+        while True:
+            # Create a new instance of the Chrome driver
+            self.driver = webdriver.Chrome(
+                service=self.service, options=self.options)
+            self.driver.get(self.url)  # Navigate to the page
+            num_profs = self.num_professors(testing)
+
+            # If the number of professors is not 0, break out of the loop.
+            if num_profs != 0:
+                break
+            # If the number of professors is 0, close the driver and try again.
+            else:
+                self.driver.quit()                      # Close the driver
+
+                # If the function takes more than 3 minutes to return a non-zero value, return false.
+                if timeout - time.time() > 180:
+                    if testing:
+                        print(
+                            "Timeout error waiting for num_professors(). Returning false.")
+                        return False
+
+                print("Retrying num_professors()...")
+
+        # Show more button
+        Xpath = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[4]/button'
+        element = self.driver.find_element(
+            By.XPATH, Xpath)  # Find the show more button
+
+        # Click the show more button until all professors are shown
+        while True:
+            try:
+                element.click()
+            except:
+                break
+
+        # All professor div with professor cards
+        Xpath = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[3]'
+        element = self.driver.find_element(
+            By.XPATH, Xpath)  # Find the show more button
+        professor_div = element.get_attribute('innerHTML')
+
+        professor_div_a_tags = BeautifulSoup(
+            professor_div, 'html.parser').find_all('a')  # Get all a tags
+        for a in professor_div_a_tags:
+            print(a['href'])
+
+            Xpath = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[3]/a[1]/div/div[2]/div[1]'
+            element = self.driver.find_element(
+                By.XPATH, Xpath)  # Find the professor name
+            professor_name = element.get_attribute('innerHTML')
+            print(professor_name)
 
         if testing:
-            print("Number of Professors Total: ", num_of_prof)
+            print("Number of professors <a> tags: ", len(professor_div_a_tags))
 
-        url = 'https://www.ratemyprofessors.com/search/teachers?query=*&sid=' + \
-            str(self.school_id)
+        # Get the HTML of the page
+        html = self.driver.page_source
 
-        options = webdriver.ChromeOptions()
-        options.add_argument('--ignore-certificate-errors')
-        options.add_argument('--ignore-ssl-errors')
-        options.add_argument('--ignore-certificate-errors-spki-list')
-        options.add_argument('log-level=3')
+        self.driver.close()
+        self.driver.quit()
 
-        driver = webdriver.Chrome(service=service, options=options)
-        driver.get(url)                  # Navigate to the page
+        if testing:
+            end = time.time()
+            print("scrape_professors() finished in ", end - start, " seconds.")
+            print("-------------------------------------------------")
 
-        element = driver.find_element(
-            By.CLASS_NAME, 'TeacherCard__StyledTeacherCard-syjs0d-0 dLJIlx')
-
-        print(element.text)
-
-        # <a class="TeacherCard__StyledTeacherCard-syjs0d-0 dLJIlx" href="/professor?tid=47"><div class="TeacherCard__InfoRatingWrapper-syjs0d-3 kcbPEB"><div class="TeacherCard__NumRatingWrapper-syjs0d-2 joEEbw"><div class="CardNumRating__StyledCardNumRating-sc-17t4b9u-0 eWZmyX"><div class="CardNumRating__CardNumRatingHeader-sc-17t4b9u-1 fVETNc">QUALITY</div><div class="CardNumRating__CardNumRatingNumber-sc-17t4b9u-2 gcFhmN">4.1</div><div class="CardNumRating__CardNumRatingCount-sc-17t4b9u-3 jMRwbg">38 ratings</div></div></div><div class="TeacherCard__CardInfo-syjs0d-1 fkdYMc"><div class="CardName__StyledCardName-sc-1gyrgim-0 cJdVEK">John Swain</div><div class="CardSchool__StyledCardSchool-sc-19lmz2k-2 gSTNdb"><div class="CardSchool__Department-sc-19lmz2k-0 haUIRO">Physics</div><div class="CardSchool__School-sc-19lmz2k-1 iDlVGM">Northeastern University</div></div><div class="CardFeedback__StyledCardFeedback-lq6nix-0 frciyA"><div class="CardFeedback__CardFeedbackItem-lq6nix-1 fyKbws"><div class="CardFeedback__CardFeedbackNumber-lq6nix-2 hroXqf">100%</div> would take again</div><div class="VerticalSeparator-sc-1l9ngcr-0 enhFnm"></div> <div class="CardFeedback__CardFeedbackItem-lq6nix-1 fyKbws"><div class="CardFeedback__CardFeedbackNumber-lq6nix-2 hroXqf">2</div> level of difficulty</div></div></div></div><button class="TeacherBookmark__StyledTeacherBookmark-sc-17dr6wh-0 kebbUY" type="button"><img src="/static/media/bookmark-default.b056b070.svg" alt="Bookmark" data-tooltip="true" data-tip="Save Professor" data-for="GLOBAL_TOOLTIP" currentitem="false"></button></a>
-
-        return 0
+        return True
 
         # iterate through the professor
         for json_professor in json_response["professors"]:
@@ -118,16 +190,17 @@ class RateMyProfApi:
 
             professors[professor.ratemyprof_id] = professor
 
-        if testing:
-            print("Professors actually added: ", str(len(professors)))
-
         return professors
 
 
 if __name__ == "__main__":
-    # # Testing
-    uw_school_id_1 = RateMyProfApi(1256)
-    uw_school_id_1.scrape_professors(testing=True)
+    testing = True
+    if testing:
+        print("----------------------TESTING----------------------")
+        start = time.time()
+    uw_school_id_1 = RateMyProfApi(config.sid)
+    uw_school_id_1.scrape_professors(testing=testing)
 
-    # uw_school_id_2 = RateMyProfApi(18418)
-    # uw_school_id_2.scrape_professors(testing=False)
+    if testing:
+        end = time.time()
+        print("Finished in ", end - start, " seconds.")
