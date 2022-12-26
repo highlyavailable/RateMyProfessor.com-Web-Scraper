@@ -63,10 +63,15 @@ class RateMyProfApi:
 
         # Check RMP page error
         try:
+            # RMP error message Xpath
             Xpath = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[1]/div/div/div'
+            # Find the error message element
             element = self.driver.find_element(By.XPATH, Xpath)
-            error_message = element.text.strip().replace("\n", "")
+            error_message = element.text.strip().replace(
+                "\n", "")  # Save the error message text
+            # Error message string to check for
             error_string = 'No professors with "" in their name'
+            # If the error message string is in the error message, return 0.
             if error_string in error_message:
                 print(
                     "***WARNING: RateMyProfessor error, returned total number of professors on RMP. Returning error code 0.***")
@@ -139,21 +144,26 @@ class RateMyProfApi:
         # Click the show more button until all professors are shown
         while True:
             try:
-                element.click()
+                element.click()  # Click the show more button
+                # time.sleep(1.5) # Wait for the page to load
             except:
                 break
 
-        # All professor div with professor cards
+        # All professors div with professor cards
         Xpath = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[3]'
+
         element = self.driver.find_element(
             By.XPATH, Xpath)  # Find the show more button
         professor_div = element.get_attribute('innerHTML')
-
         professor_div_a_tags = BeautifulSoup(
             professor_div, 'html.parser').find_all('a')  # Get all a tags
+
+        print(professor_div_a_tags[1]['href'])
+
         for i in range(1, len(professor_div_a_tags)):
             print(professor_div_a_tags[i]['href'])
-            Xpath = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[3]/a[' + str(i) + ']/div/div[2]/div[1]'
+            Xpath = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[3]/a[' + \
+                str(i) + ']/div/div[2]/div[1]'
 
             element = self.driver.find_element(
                 By.XPATH, Xpath)  # Find the professor name
@@ -166,8 +176,8 @@ class RateMyProfApi:
         # Get the HTML of the page
         html = self.driver.page_source
 
-        self.driver.close()
-        self.driver.quit()
+        # self.driver.close()
+        # self.driver.quit()
 
         if testing:
             end = time.time()
