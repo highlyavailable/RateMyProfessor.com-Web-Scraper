@@ -19,8 +19,13 @@ from bs4 import BeautifulSoup                           # BeautifulSoup
 from selenium import webdriver                          # Selenium
 from selenium.webdriver.common.keys import Keys         # Selenium: Keyboard keys
 # Selenium: Find elements by
+# Selenium: Find elements by
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service   # Selenium: Path to WebDriver
+# Selenium: Wait for page to load
+from selenium.webdriver.support.ui import WebDriverWait
+# Selenium: Expected conditions for page load
+from selenium.webdriver.support import expected_conditions as EC
 
 # Configuration imports
 import config
@@ -120,12 +125,13 @@ class RateMyProfApi:
             # If the number of professors is not 0, break out of the loop.
             if num_profs != 0:
                 break
+
             # If the number of professors is 0, close the driver and try again.
             else:
                 self.driver.quit()                      # Close the driver
 
                 # If the function takes more than 3 minutes to return a non-zero value, return false.
-                if timeout - time.time() > 180:
+                if timeout - time.time() > config.num_professors_timeout:
                     if testing:
                         print(
                             "Timeout error waiting for num_professors(). Returning false.")
@@ -136,8 +142,45 @@ class RateMyProfApi:
         if testing:
             print("-------------scrape_professors() cont.--------------")
 
+        # Click the show more button to load all professors
+        if testing:
+            print("Clicking 'Show More' button...")
+        timeout_show_more = time.time()  # Timeout for show more button
+        while True:
+            try:
+                # Show more button
+                show_more_button_xpath = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[4]/button'
+                show_more_button = self.driver.find_element(
+                    By.XPATH, show_more_button_xpath)  # Find the show more button
+
+                # self.driver.execute_script("arguments[0].click();", WebDriverWait(self.driver, 20).until(EC.element_to_be_clickable((By.XPATH, show_more_button_xpath))))
+                # Click the show more button
+                self.driver.execute_script(
+                    "arguments[0].click();", show_more_button)
+
+                if time.time() - timeout_show_more > config.show_more_timeout:
+                    print(
+                        "Timeout error waiting for 'Show More' button. Returning false.")
+                    break
+
+            except IndexError as e:
+                print("Error Clicking 'Show More': ", e)
+                break
+
+        if testing:
+            print("Done pressing 'Show More' button...")
+            print("Pressing 'Show More' button took ",
+                  time.time() - timeout_show_more, " seconds.")
+
+        # Xpath to the professor's school
+        school_name_xpath = prof_card_div + '/div/div[2]/div[2]/div[2]'
+        # Find the professor's school
+        school_name = self.driver.find_element(
+            By.XPATH, school_name_xpath).get_attribute('innerHTML')
+
         # Click the show more button until all professors are shown
         for i in range(1, num_profs):
+            all_prof_dict = {}  # Dictionary to store all professor data
             prof_dict = {}  # Dictionary to store professor data
             prof_dict["Name"] = ""
             prof_dict["School"] = ""
@@ -148,59 +191,76 @@ class RateMyProfApi:
             prof_dict["WouldTakeAgain"] = ""
 
             try:
+                # 5. Professor's School
+                # Xpath to the professor's school
+                prof_school_xpath = prof_card_div + '/div/div[2]/div[2]/div[2]'
+                # Find the professor's school
+                prof_dict['School'] = self.driver.find_element(
+                    By.XPATH, prof_school_xpath).get_attribute('innerHTML')
+
+                # If the professor's school is not the same as the school name corresponding to the school_id, skip the professor.
+                if prof_dict['School'] != school_name:
+                    continue
+
                 # 1. Professor's Rating
                 # Xpath to the unique professor card
-                prof_card_div = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[3]/a[' + str(i) + ']'
+                prof_card_div = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[3]/a[' + str(
+                    i) + ']'
                 # Xpath to the professor's rating
                 prof_rating_xpath = prof_card_div + '/div/div[1]/div/div[2]'
                 # Find the professor rating card
-                prof_dict['Rating'] = self.driver.find_element(By.XPATH, prof_rating_xpath).get_attribute('innerHTML')
+                prof_dict['Rating'] = self.driver.find_element(
+                    By.XPATH, prof_rating_xpath).get_attribute('innerHTML')
 
                 # 2. Professor's Number of Ratings
                 # Xpath to the professor's number of ratings
-                prof_num_rating_xpath = prof_card_div + '/div/div[1]/div/div[3]'
+                prof_num_rating_xpath = prof_card_div + \
+                    '/div/div[1]/div/div[3]'
                 # Find the professor's number of ratings
-                prof_dict['NumRatings'] = self.driver.find_element(By.XPATH, prof_num_rating_xpath).get_attribute('innerHTML')
+                prof_dict['NumRatings'] = self.driver.find_element(
+                    By.XPATH, prof_num_rating_xpath).get_attribute('innerHTML')
 
                 # 3. Professor's Name
                 # Xpath to the professor's name
                 prof_name_xpath = prof_card_div + '/div/div[2]/div[1]'
                 # Find the professor's name
-                prof_dict['Name'] = self.driver.find_element(By.XPATH, prof_name_xpath).get_attribute('innerHTML')
+                prof_dict['Name'] = self.driver.find_element(
+                    By.XPATH, prof_name_xpath).get_attribute('innerHTML')
 
                 # 4. Professor's Department
                 # Xpath to the professor's department
-                prof_department_xpath = prof_card_div + '/div/div[2]/div[2]/div[1]'
+                prof_department_xpath = prof_card_div + \
+                    '/div/div[2]/div[2]/div[1]'
                 # Find the professor's department
-                prof_dict['Department'] = self.driver.find_element(By.XPATH, prof_department_xpath).get_attribute('innerHTML')
-
-                # 5. Professor's School
-                # Xpath to the professor's school
-                prof_school_xpath = prof_card_div + '/div/div[2]/div[2]/div[2]'
-                # Find the professor's school
-                prof_dict['School'] = self.driver.find_element(By.XPATH, prof_school_xpath).get_attribute('innerHTML')
+                prof_dict['Department'] = self.driver.find_element(
+                    By.XPATH, prof_department_xpath).get_attribute('innerHTML')
 
                 # 6. Professor's Difficulty
                 # Xpath to the professor's Difficulty
-                prof_difficulty_xpath = prof_card_div + '/div/div[2]/div[3]/div[3]/div'
+                prof_difficulty_xpath = prof_card_div + \
+                    '/div/div[2]/div[3]/div[3]/div'
                 # Find the professor's Difficulty
-                prof_dict['Difficulty'] = self.driver.find_element(By.XPATH, prof_difficulty_xpath).get_attribute('innerHTML')
+                prof_dict['Difficulty'] = self.driver.find_element(
+                    By.XPATH, prof_difficulty_xpath).get_attribute('innerHTML')
 
                 # 7. Professor's Would Take Again
                 # Xpath to the professor's Would Take Again
-                prof_WTA_xpath = prof_card_div + '/div/div[2]/div[3]/div[1]/div'
+                prof_WTA_xpath = prof_card_div + \
+                    '/div/div[2]/div[3]/div[1]/div'
                 # Find the professor's Difficulty
-                prof_dict['WouldTakeAgain'] = self.driver.find_element(By.XPATH, prof_WTA_xpath).get_attribute('innerHTML')
+                prof_dict['WouldTakeAgain'] = self.driver.find_element(
+                    By.XPATH, prof_WTA_xpath).get_attribute('innerHTML')
 
-                print(prof_dict)
+                all_prof_dict[i] = prof_dict
 
-                # If i is a multiple of 8, 
-                if i % 8 == 0:
-                    # Show more button
-                    show_more_button_xpath = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[4]/button'
-                    show_more_button = self.driver.find_element(By.XPATH, show_more_button_xpath)  # Find the show more button
-                    show_more_button.click()
-                    print("Clicked show more button.")
+                # print(all_prof_dict[i])
+
+                all_prof_json = json.dumps(all_prof_dict)
+
+                # Write to file in JSON format 'all-professors.json'
+                with open('all-professors.json', 'a') as f:
+                    f.write(all_prof_json)
+                    f.write(",\n")
 
             except Exception as e:
                 print("Error: ", e)
