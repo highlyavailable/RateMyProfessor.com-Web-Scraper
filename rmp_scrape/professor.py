@@ -2,9 +2,9 @@ class Professor:
     """
     professor class to classify professor information
     """
-    def __init__(self, ratemyprof_id: int, first_name: str, last_name: str, num_of_ratings: int, overall_rating, rating_class: str, department: str):
+    def __init__(self, RMPid: int, first_name: str, last_name: str, num_of_ratings: int, overall_rating, rating_class: str, department: str):
         # unique RMP seed id per university
-        self.ratemyprof_id = ratemyprof_id
+        self.RMPid = RMPid
 
         # get professor basic information
         self.name = f"{first_name} {last_name}"
