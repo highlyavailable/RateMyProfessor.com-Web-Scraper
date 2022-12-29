@@ -12,6 +12,7 @@ import time
 import os
 import sys
 import argparse
+import importlib
 
 
 # Local imports
@@ -30,11 +31,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 # Selenium: Expected conditions for page load
 from selenium.webdriver.support import expected_conditions as EC
 # Selenium: Timeout exception
-from selenium.common.exceptions import TimeoutException
-
-# Configuration imports
-import config
-
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
 class RateMyProfApi:
     """
@@ -140,7 +137,8 @@ class RateMyProfApi:
                     # If the timeout has been reached, return false.
                     if timeout - time.time() >= args.page_reload_timeout:
                         if testing:
-                            print("Timeout error waiting for num_professors(). Retrying num_professors()...")
+                            print(
+                                "Timeout error waiting for num_professors(). Retrying num_professors()...")
                         return False
 
         if testing:
@@ -173,7 +171,7 @@ class RateMyProfApi:
                 # show_more_button = self.driver.find_element(By.XPATH, show_more_button_xpath)  # Find the show more button
                 self.driver.execute_script("arguments[0].click();", WebDriverWait(
                     self.driver, 20).until(EC.element_to_be_clickable((By.XPATH, show_more_button_xpath))))
-             
+
                 times_pressed += 1
                 num_press_show_more -= 1
 
@@ -185,7 +183,8 @@ class RateMyProfApi:
 
             except TimeoutException as e:
                 if testing:
-                    print("Encountered Selenium TimeoutException when pressing 'Show More'.")
+                    print(
+                        "Encountered Selenium TimeoutException when pressing 'Show More'.")
                     print("Error: ", e)
                     print("Retrying pressing 'Show More'....")
 
@@ -226,7 +225,7 @@ class RateMyProfApi:
                 prof_card_div = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[3]/a[' + str(
                     i) + ']'
 
-                # 5. Professor's School
+                # 1. Professor's School
                 # Xpath to the professor's school
                 prof_school_xpath = prof_card_div + '/div/div[2]/div[2]/div[2]'
                 # Find the professor's school
@@ -237,14 +236,14 @@ class RateMyProfApi:
                 if prof_dict['School'] != school_name:
                     continue
 
-                # 1. Professor's Rating
+                # 2. Professor's Rating
                 # Xpath to the professor's rating
                 prof_rating_xpath = prof_card_div + '/div/div[1]/div/div[2]'
                 # Find the professor rating card
                 prof_dict['Rating'] = self.driver.find_element(
                     By.XPATH, prof_rating_xpath).get_attribute('innerHTML')
 
-                # 2. Professor's Number of Ratings
+                # 3. Professor's Number of Ratings
                 # Xpath to the professor's number of ratings
                 prof_num_rating_xpath = prof_card_div + \
                     '/div/div[1]/div/div[3]'
@@ -252,14 +251,14 @@ class RateMyProfApi:
                 prof_dict['NumRatings'] = self.driver.find_element(
                     By.XPATH, prof_num_rating_xpath).get_attribute('innerHTML')
 
-                # 3. Professor's Name
+                # 4. Professor's Name
                 # Xpath to the professor's name
                 prof_name_xpath = prof_card_div + '/div/div[2]/div[1]'
                 # Find the professor's name
                 prof_dict['Name'] = self.driver.find_element(
                     By.XPATH, prof_name_xpath).get_attribute('innerHTML')
 
-                # 4. Professor's Department
+                # 5. Professor's Department
                 # Xpath to the professor's department
                 prof_department_xpath = prof_card_div + \
                     '/div/div[2]/div[2]/div[1]'
@@ -287,14 +286,17 @@ class RateMyProfApi:
 
                 all_prof_json = json.dumps(all_prof_dict)
 
-                 # Write to file in JSON format 'all-professors.json'
+                # Write to file in JSON format 'all-professors.json'
                 with open(file_path, 'a') as f:
                     f.write(all_prof_json)  # Write the JSON to the file
                     # Add a comma and newline to separate each professor
                     f.write(",\n")
 
-            except Exception as e:
-                print("Error: ", e)
+            except NoSuchElementException as e:
+                if testing:
+                    print("Encountered NoSuchElementException while scraping professor data at index " + str(i) + ".")
+                    print("No longer scraping professor data.")
+                    print("Error: ", e)
                 break
 
         self.driver.close()
@@ -331,16 +333,34 @@ if __name__ == "__main__":
     parser.add_argument(
         "-f", "--file_path", help="Specify the file path to store the scraped data", type=str)
 
-    args = parser.parse_args()
-    testing = args.testing
+    # Add an argument '-config' or '--config' to specify the config file path if you want to use a config file instead of specifying the arguments
+    parser.add_argument(
+        "-config", "--config", help="Specify the config file path if you want to use a config file instead of specifying the arguments", type=str)
 
-    if testing:
+    args = parser.parse_args()
+
+    if args.config is not None:
+        config = importlib.import_module(args.config) # Load the config.py file
+
+        # Set the arguments to the values specified in the config file if the argument is not specified in the command line
+        if config.testing is not None and args.testing is None:
+            args.testing = config.testing
+        if config.sid is not None and args.sid is None:
+            args.sid = config.sid
+        if config.page_reload_timeout is not None and args.page_reload_timeout is None:
+            args.page_reload_timeout = config.page_reload_timeout
+        if config.show_more_timeout is not None and args.show_more_timeout is None:
+            args.show_more_timeout = config.show_more_timeout
+        if config.file_path is not None and args.file_path is None:
+            args.file_path = config.file_path
+
+    if args.testing:
         print("----------------------TESTING-----------------------")
         start = time.time()
 
-    uw_school_id_1 = RateMyProfApi(config.sid)
-    uw_school_id_1.scrape_professors(args, testing=testing)
+    RateMyProf = RateMyProfApi(args.sid)
+    RateMyProf.scrape_professors(args, testing=args.testing)
 
-    if testing:
+    if args.testing:
         end = time.time()
         print("Finished in ", end - start, " seconds.")
