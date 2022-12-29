@@ -9,6 +9,10 @@ import requests
 import json
 import math
 import time
+import os
+import sys
+import argparse
+
 
 # Local imports
 from professor import Professor
@@ -19,13 +23,14 @@ from bs4 import BeautifulSoup                           # BeautifulSoup
 from selenium import webdriver                          # Selenium
 from selenium.webdriver.common.keys import Keys         # Selenium: Keyboard keys
 # Selenium: Find elements by
-# Selenium: Find elements by
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service   # Selenium: Path to WebDriver
 # Selenium: Wait for page to load
 from selenium.webdriver.support.ui import WebDriverWait
 # Selenium: Expected conditions for page load
 from selenium.webdriver.support import expected_conditions as EC
+# Selenium: Timeout exception
+from selenium.common.exceptions import TimeoutException
 
 # Configuration imports
 import config
@@ -79,7 +84,7 @@ class RateMyProfApi:
             # If the error message string is in the error message, return 0.
             if error_string in error_message:
                 print(
-                    "***WARNING: RateMyProfessor error, returned total number of professors on RMP. Returning error code 0.***")
+                    "***WARNING: RateMyProfessor error, returned total number of professors on RMP. Reloading page...***")
                 return 0
         except:
             pass
@@ -95,10 +100,9 @@ class RateMyProfApi:
             end = time.time()
             print("Number of professors: ", num_profs)
             print("num_professors() finished in ", end - start, " seconds.")
-            print("----------------------------------------------------")
         return num_profs
 
-    def scrape_professors(self, testing=False):
+    def scrape_professors(self, args, testing=False, ):
         """
         Scrapes all professors from the school with the given school_id and populates a JSON file with the data.
         Return: true if successful, false if not.
@@ -113,7 +117,7 @@ class RateMyProfApi:
         # Number of professors with RMP records associated with the given university SID.
         num_profs = 0
 
-        # Restart scrape_professors() if the number of professors is 0.
+        # Reload page until the number of professors is not 0.
         timeout = time.time()
         while True:
             # Create a new instance of the Chrome driver
@@ -130,53 +134,80 @@ class RateMyProfApi:
             else:
                 self.driver.quit()                      # Close the driver
 
-                # If the function takes more than 3 minutes to return a non-zero value, return false.
-                if timeout - time.time() > config.num_professors_timeout:
-                    if testing:
-                        print(
-                            "Timeout error waiting for num_professors(). Returning false.")
+                # Page reload timeout:
+                # If the page reload timeout option is set
+                if args.page_reload_timeout != None:
+                    # If the timeout has been reached, return false.
+                    if timeout - time.time() >= args.page_reload_timeout:
+                        if testing:
+                            print("Timeout error waiting for num_professors(). Retrying num_professors()...")
                         return False
-
-                print("Retrying num_professors()...")
 
         if testing:
             print("-------------scrape_professors() cont.--------------")
 
-        # Click the show more button to load all professors
-        if testing:
-            print("Clicking 'Show More' button...")
-        timeout_show_more = time.time()  # Timeout for show more button
-        while True:
-            try:
-                # Show more button
-                show_more_button_xpath = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[4]/button'
-                show_more_button = self.driver.find_element(
-                    By.XPATH, show_more_button_xpath)  # Find the show more button
+         # Xpath to the school name
+        school_name_xpath = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[1]/div/h1/span/b'
 
-                # self.driver.execute_script("arguments[0].click();", WebDriverWait(self.driver, 20).until(EC.element_to_be_clickable((By.XPATH, show_more_button_xpath))))
-                # Click the show more button
-                self.driver.execute_script(
-                    "arguments[0].click();", show_more_button)
-
-                if time.time() - timeout_show_more > config.show_more_timeout:
-                    print(
-                        "Timeout error waiting for 'Show More' button. Returning false.")
-                    break
-
-            except IndexError as e:
-                print("Error Clicking 'Show More': ", e)
-                break
-
-        if testing:
-            print("Done pressing 'Show More' button...")
-            print("Pressing 'Show More' button took ",
-                  time.time() - timeout_show_more, " seconds.")
-
-        # Xpath to the professor's school
-        school_name_xpath = prof_card_div + '/div/div[2]/div[2]/div[2]'
         # Find the professor's school
         school_name = self.driver.find_element(
             By.XPATH, school_name_xpath).get_attribute('innerHTML')
+
+        # Click the show more button to load all professors
+        if testing:
+            print("School name: ", school_name)
+            print("Clicking 'Show More' button...")
+
+        times_pressed = 0
+        timeout_show_more = time.time()  # Timeout for show more button
+
+        # Number of times the 'Show More' button should be pressed
+        # (total number of professors found - first 8 professors) // (professors per page load)
+        num_press_show_more = (num_profs - 8) // 8
+
+        # while True:
+        while num_press_show_more:
+            try:
+                # Show more button
+                show_more_button_xpath = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[4]/button'
+                # show_more_button = self.driver.find_element(By.XPATH, show_more_button_xpath)  # Find the show more button
+                self.driver.execute_script("arguments[0].click();", WebDriverWait(
+                    self.driver, 20).until(EC.element_to_be_clickable((By.XPATH, show_more_button_xpath))))
+             
+                times_pressed += 1
+                num_press_show_more -= 1
+
+                if args.show_more_timeout != None:
+                    if time.time() - timeout_show_more >= args.show_more_timeout:
+                        print(
+                            "Show more timeout reached when waiting for 'Show More' button.")
+                        break
+
+            except TimeoutException as e:
+                if testing:
+                    print("Encountered Selenium TimeoutException when pressing 'Show More'.")
+                    print("Error: ", e)
+                    print("Retrying pressing 'Show More'....")
+
+            except IndexError as e:
+                if testing:
+                    print("Encountered IndexError while pressing 'Show More'.")
+                break
+
+        if testing:
+            print("Done pressing 'Show More' button (pressed "+str(times_pressed) + " times in " +
+                  str(time.time() - timeout_show_more), " seconds.)...")
+
+        # If the file path is specified, use that file path. Otherwise, use the default file path.
+        if args.file_path != None:
+            file_path = args.file_path
+        else:
+            file_path = 'profs_from_' + school_name.replace(" ", "") + '.json'
+
+        # If the destination file exists and is not empty, clear the file
+        with open(file_path, 'a') as f:
+            if os.stat(file_path).st_size != 0:
+                f.truncate(0)
 
         # Click the show more button until all professors are shown
         for i in range(1, num_profs):
@@ -191,6 +222,10 @@ class RateMyProfApi:
             prof_dict["WouldTakeAgain"] = ""
 
             try:
+                # Xpath to the unique professor card
+                prof_card_div = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[3]/a[' + str(
+                    i) + ']'
+
                 # 5. Professor's School
                 # Xpath to the professor's school
                 prof_school_xpath = prof_card_div + '/div/div[2]/div[2]/div[2]'
@@ -203,9 +238,6 @@ class RateMyProfApi:
                     continue
 
                 # 1. Professor's Rating
-                # Xpath to the unique professor card
-                prof_card_div = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[3]/a[' + str(
-                    i) + ']'
                 # Xpath to the professor's rating
                 prof_rating_xpath = prof_card_div + '/div/div[1]/div/div[2]'
                 # Find the professor rating card
@@ -253,13 +285,12 @@ class RateMyProfApi:
 
                 all_prof_dict[i] = prof_dict
 
-                # print(all_prof_dict[i])
-
                 all_prof_json = json.dumps(all_prof_dict)
 
-                # Write to file in JSON format 'all-professors.json'
-                with open('all-professors.json', 'a') as f:
-                    f.write(all_prof_json)
+                 # Write to file in JSON format 'all-professors.json'
+                with open(file_path, 'a') as f:
+                    f.write(all_prof_json)  # Write the JSON to the file
+                    # Add a comma and newline to separate each professor
                     f.write(",\n")
 
             except Exception as e:
@@ -278,14 +309,37 @@ class RateMyProfApi:
 
 
 if __name__ == "__main__":
-    testing = True
+    parser = argparse.ArgumentParser()
+
+    # Add an argument '-t' or '--testing' to run the program in testing mode
+    parser.add_argument(
+        "-t", "--testing", help="Run the program in testing mode", action="store_true")
+
+    # Add an argument '-s' or '--sid' to specify the RMP school id
+    parser.add_argument(
+        "-s", "--sid", help="Specify the RMP school id", type=int)
+
+    # Add an argument '-prt' or '--page_reload_timeout' to specify the timeout for reloading the RMP page
+    parser.add_argument(
+        "-prt", "--page_reload_timeout", help="Specify the timeout for reloading the RMP page", type=int)
+
+    # Add an argument '-smt' or '--show_more_timeout' to specify the timeout for clicking the show more button
+    parser.add_argument(
+        "-smt", "--show_more_timeout", help="Specify the timeout for clicking the show more button", type=int)
+
+    # Add an argument '-f' or '--file_path' to specify the file path to store the scraped data
+    parser.add_argument(
+        "-f", "--file_path", help="Specify the file path to store the scraped data", type=str)
+
+    args = parser.parse_args()
+    testing = args.testing
 
     if testing:
         print("----------------------TESTING-----------------------")
         start = time.time()
 
     uw_school_id_1 = RateMyProfApi(config.sid)
-    uw_school_id_1.scrape_professors(testing=testing)
+    uw_school_id_1.scrape_professors(args, testing=testing)
 
     if testing:
         end = time.time()
