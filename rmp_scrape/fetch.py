@@ -14,7 +14,6 @@ import sys
 import argparse
 import importlib
 
-
 # Local imports
 from professor import Professor
 
@@ -32,6 +31,38 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 # Selenium: Timeout exception
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
+
+# Selenium: Path to WebDriver
+path_to_webdriver = "C:\Program Files (x86)\chromedriver.exe"
+
+# Command line argument parser
+parser = argparse.ArgumentParser()
+
+# Add an argument '-t' or '--testing' to run the program in testing mode
+parser.add_argument(
+    "-t", "--testing", help="Run the program in testing mode", action="store_true")
+
+# Add an argument '-s' or '--sid' to specify the RMP school id
+parser.add_argument(
+    "-s", "--sid", help="Specify the RMP school id", type=int, default=-1)
+
+# Add an argument '-prt' or '--page_reload_timeout' to specify the timeout for reloading the RMP page
+parser.add_argument(
+    "-prt", "--page_reload_timeout", help="Specify the timeout for reloading the RMP page", type=int)
+
+# Add an argument '-smt' or '--show_more_timeout' to specify the timeout for clicking the show more button
+parser.add_argument(
+    "-smt", "--show_more_timeout", help="Specify the timeout for clicking the show more button", type=int)
+
+# Add an argument '-f' or '--file_path' to specify the file path to store the scraped data
+parser.add_argument(
+    "-f", "--file_path", help="Specify the file path to store the scraped data", type=str)
+
+# Add an argument '-config' or '--config' to specify the config file path if you want to use a config file instead of specifying the arguments
+parser.add_argument(
+    "-config", "--config", help="Specify the config file path if you want to use a config file instead of specifying the arguments", type=str)
+
+args = parser.parse_args()
 
 class RateMyProfApi:
     """
@@ -57,7 +88,7 @@ class RateMyProfApi:
         self.options.add_argument('log-level=3')  # Ignore warnings
 
         # Path to WebDriver
-        self.service = Service(config.path_to_webdriver)
+        self.service = Service(path_to_webdriver)
 
     def num_professors(self, testing=False):
         """
@@ -99,11 +130,13 @@ class RateMyProfApi:
             print("num_professors() finished in ", end - start, " seconds.")
         return num_profs
 
-    def scrape_professors(self, args, testing=False, ):
+    def scrape_professors(self, args):
         """
         Scrapes all professors from the school with the given school_id and populates a JSON file with the data.
         Return: true if successful, false if not.
         """
+        testing = args.testing  # Testing mode
+        
         if testing:
             print("-----------------scrape_professors()----------------")
 
@@ -163,7 +196,7 @@ class RateMyProfApi:
         # (total number of professors found - first 8 professors) // (professors per page load)
         num_press_show_more = (num_profs - 8) // 8
 
-        # while True:
+        show_more_timeout_exception_count = 0  # Number of times the show more timeout has been reached
         while num_press_show_more:
             try:
                 # Show more button
@@ -182,10 +215,14 @@ class RateMyProfApi:
                         break
 
             except TimeoutException as e:
+                show_more_timeout_exception_count += 1
+                if show_more_timeout_exception_count >= 3:
+                    print(
+                        "Show more timeout exception max count reached (3). Breaking out of 'Show More' loop.")
+                    break
                 if testing:
                     print(
                         "Encountered Selenium TimeoutException when pressing 'Show More'.")
-                    print("Error: ", e)
                     print("Retrying pressing 'Show More'....")
 
             except IndexError as e:
@@ -294,7 +331,8 @@ class RateMyProfApi:
 
             except NoSuchElementException as e:
                 if testing:
-                    print("Encountered NoSuchElementException while scraping professor data at index " + str(i) + ".")
+                    print(
+                        "Encountered NoSuchElementException while scraping professor data at index " + str(i) + ".")
                     print("No longer scraping professor data.")
                     print("Error: ", e)
                 break
@@ -311,55 +349,40 @@ class RateMyProfApi:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-
-    # Add an argument '-t' or '--testing' to run the program in testing mode
-    parser.add_argument(
-        "-t", "--testing", help="Run the program in testing mode", action="store_true")
-
-    # Add an argument '-s' or '--sid' to specify the RMP school id
-    parser.add_argument(
-        "-s", "--sid", help="Specify the RMP school id", type=int)
-
-    # Add an argument '-prt' or '--page_reload_timeout' to specify the timeout for reloading the RMP page
-    parser.add_argument(
-        "-prt", "--page_reload_timeout", help="Specify the timeout for reloading the RMP page", type=int)
-
-    # Add an argument '-smt' or '--show_more_timeout' to specify the timeout for clicking the show more button
-    parser.add_argument(
-        "-smt", "--show_more_timeout", help="Specify the timeout for clicking the show more button", type=int)
-
-    # Add an argument '-f' or '--file_path' to specify the file path to store the scraped data
-    parser.add_argument(
-        "-f", "--file_path", help="Specify the file path to store the scraped data", type=str)
-
-    # Add an argument '-config' or '--config' to specify the config file path if you want to use a config file instead of specifying the arguments
-    parser.add_argument(
-        "-config", "--config", help="Specify the config file path if you want to use a config file instead of specifying the arguments", type=str)
-
-    args = parser.parse_args()
 
     if args.config is not None:
-        config = importlib.import_module(args.config) # Load the config.py file
+        config = importlib.import_module(
+            args.config)  # Load the config.py file
 
         # Set the arguments to the values specified in the config file if the argument is not specified in the command line
-        if config.testing is not None and args.testing is None:
-            args.testing = config.testing
-        if config.sid is not None and args.sid is None:
+        if config.sid is not None and args.sid == -1:
             args.sid = config.sid
+
+        if config.testing is not None and args.testing is False:
+            args.testing = config.testing
+
         if config.page_reload_timeout is not None and args.page_reload_timeout is None:
             args.page_reload_timeout = config.page_reload_timeout
+
         if config.show_more_timeout is not None and args.show_more_timeout is None:
             args.show_more_timeout = config.show_more_timeout
+
         if config.file_path is not None and args.file_path is None:
             args.file_path = config.file_path
+
+    # Required arguments check
+    if args.sid == -1:
+        print("Error: No RMP school id specified.")
+        print("Please specify the RMP school id using the -s or --sid argument.")
+        print("Alternatively, you can specify the RMP school id in the config.py file.")
+        exit(1)
 
     if args.testing:
         print("----------------------TESTING-----------------------")
         start = time.time()
 
     RateMyProf = RateMyProfApi(args.sid)
-    RateMyProf.scrape_professors(args, testing=args.testing)
+    RateMyProf.scrape_professors(args)
 
     if args.testing:
         end = time.time()
