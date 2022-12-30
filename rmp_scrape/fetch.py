@@ -64,9 +64,9 @@ parser.add_argument(
 
 args = parser.parse_args()
 
-class RateMyProfApi:
+class RateMyProf:
     """
-    RateMyProfAPI class contains functions to scrape professor data from RateMyProfessors.com
+    RateMyProf class contains functions to scrape professor data from RateMyProfessors.com
     """
 
     def __init__(self, school_id):
@@ -112,7 +112,7 @@ class RateMyProfApi:
             # If the error message string is in the error message, return 0.
             if error_string in error_message:
                 print(
-                    "***WARNING: RateMyProfessor error, returned total number of professors on RMP. Reloading page...***")
+                    "***WARNING: RateMyProfessors.com error, returned total number of professors on RMP. Reloading page...***")
                 return 0
         except:
             pass
@@ -186,7 +186,7 @@ class RateMyProfApi:
 
         # Click the show more button to load all professors
         if testing:
-            print("School name: ", school_name)
+            print("School name: ", school_name, "\n")
             print("Clicking 'Show More' button...")
 
         times_pressed = 0
@@ -211,7 +211,7 @@ class RateMyProfApi:
                 if args.show_more_timeout != None:
                     if time.time() - timeout_show_more >= args.show_more_timeout:
                         print(
-                            "Show more timeout reached when waiting for 'Show More' button.")
+                            "Show more timeout reached (" + str(args.show_more_timeout) + " seconds) when waiting for 'Show More' button.")
                         break
 
             except TimeoutException as e:
@@ -221,9 +221,9 @@ class RateMyProfApi:
                         "Show more timeout exception max count reached (3). Breaking out of 'Show More' loop.")
                     break
                 if testing:
-                    print(
-                        "Encountered Selenium TimeoutException when pressing 'Show More'.")
-                    print("Retrying pressing 'Show More'....")
+                    print("Encountered Selenium TimeoutException when pressing 'Show More'.")
+                    print("Waiting 3 seconds and will retry pressing 'Show More'....")
+                time.sleep(3)
 
             except IndexError as e:
                 if testing:
@@ -232,7 +232,7 @@ class RateMyProfApi:
 
         if testing:
             print("Done pressing 'Show More' button (pressed "+str(times_pressed) + " times in " +
-                  str(time.time() - timeout_show_more), " seconds.)...")
+                  str(time.time() - timeout_show_more), " seconds.)...\n")
 
         # If the file path is specified, use that file path. Otherwise, use the default file path.
         if args.file_path != None:
@@ -242,8 +242,13 @@ class RateMyProfApi:
 
         # If the destination file exists and is not empty, clear the file
         with open(file_path, 'a') as f:
+            if testing:
+                print("Creating file: '" + file_path + "'...")
             if os.stat(file_path).st_size != 0:
+                print("'" + file_path + "' already exists. Clearing file...")
                 f.truncate(0)
+                if testing:
+                    print("File cleared.\n")
 
         # Click the show more button until all professors are shown
         for i in range(1, num_profs):
@@ -332,9 +337,8 @@ class RateMyProfApi:
             except NoSuchElementException as e:
                 if testing:
                     print(
-                        "Encountered NoSuchElementException while scraping professor data at index " + str(i) + ".")
-                    print("No longer scraping professor data.")
-                    print("Error: ", e)
+                        "Encountered NoSuchElementException while scraping professor data at index " + str(i) + ". No longer scraping professor data.")
+                    # print("Error: ", e)
                 break
 
         self.driver.close()
@@ -342,11 +346,11 @@ class RateMyProfApi:
 
         if testing:
             end = time.time()
+            print(str(i-1) + " professors scraped and written to, '" + file_path +"'.")
             print("scrape_professors() finished in ", end - start, " seconds.")
             print("----------------------------------------------------")
 
         return True
-
 
 if __name__ == "__main__":
 
@@ -380,8 +384,14 @@ if __name__ == "__main__":
     if args.testing:
         print("----------------------TESTING-----------------------")
         start = time.time()
+        print("Arguments:")
+        print("sid: ", args.sid)
+        print("testing: ", args.testing)
+        print("page_reload_timeout: ", args.page_reload_timeout)
+        print("show_more_timeout: ", args.show_more_timeout)
+        print("file_path: ", args.file_path)
 
-    RateMyProf = RateMyProfApi(args.sid)
+    RateMyProf = RateMyProf(args.sid)
     RateMyProf.scrape_professors(args)
 
     if args.testing:
