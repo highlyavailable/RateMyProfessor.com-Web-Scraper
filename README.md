@@ -20,7 +20,23 @@ Once you have the `sid`, you have a few options to run the script from command l
 - `-prt` or `--page_reload_timeout`: The timeout for reloading the RMP page.
 - `-smt` or `--show_more_timeout`: The timeout for clicking the show more button.
 
-You have the option to run the script directly from the command line by specifying which arguments you want to use, but only the `sid` argument is required. If you do not specify the `file_path` argument, the script will save the scraped data to a file named `profs_from_YourSchoolName.json` in the project directory. 
+You have the option to run the script directly from the command line by specifying which arguments you want to use, but only the `-sid` argument is required. If you do not specify the `file_path` argument, the script will save the scraped data to a file named `profs_from_YourSchoolName.json` in the project directory. 
+
+You can also run the script from the command line passing only the `-config` argument, as long as the provided config file path is a `.py` file located within the `/rmp_scrape` directory that contains (at the minimum) a valid `sid`. For example, a user can create a file named `config.py` in the `/rmp_scrape` directory with the following arguments set,
+
+```{python}
+sid = 1256  
+testing = True
+page_reload_timeout = 100 # 100 seconds
+show_more_timeout = 10 # 10 seconds
+file_path = 'all_professors.json'
+```
+
+And can then run the script from within the project directory with these configurations from the command line with,
+
+```{bash}
+python3 rmp_scrape/fetch.py -config config
+```
 
 The `page_reload_timeout` and `show_more_timeout` arguments are options that I have added to help with the scraping process. The `page_reload_timeout` argument is used to specify how many seconds the script should wait while trying to load the page at `www.ratemyprofessors.com/search/teachers?query=*&sid=YourSID`. For some reason while working on this script, I noticed that the page would sometimes not load properly. The `page_reload_timeout` argument allows the user to specify how many seconds the script should wait before reloading the page. Whereas most of the time you visit this page, you will see a reasonable amount of professors for a given school, like so:
 
