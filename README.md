@@ -36,9 +36,9 @@ To combat this I added the `page_reload_timeout` command line argument that will
  
 ![RMP_error_2](https://user-images.githubusercontent.com/72423203/210110197-f4235619-e65f-4d72-b03e-163277a7726d.png)
 
-As a temporary fix, I have added the `show_more_timeout` argument to allow the user to specify how many seconds the script should continue pressing the 'Show More' button before the script scrapes the data from the page. This fix is not optimal, as after the page is filled with a lot of professors, the script must check what school the professor is from before writing the data to the JSON file. 
+As a temporary fix, I have added the `show_more_timeout` argument to allow the user to specify how many seconds the script should continue pressing the 'Show More' button before the script scrapes the data from the page. The idea here is that after subsequent presses of the 'Show More' button, the page will start containing all professors from RateMyProfessors.com. Since this can be very large, the user can instead set a length of time that will result in a timeout so that the script isn't continuously pressing 'Show More' even when the professors appearing on the page may not be all from the school corresponding top the given `sid`. 
+
+This fix is not optimal, as after the page is filled with a lot of professors, the script must perform an additional check to only add professors that are from the school corresponding to the desired `sid`.
 
 1. Install the requirements by running `pip3 install -r requirements.txt` in the project directory.
 2. Run `python3 rmp_scrape/fetch.py` to scrape the data.
-
-
