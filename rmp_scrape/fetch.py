@@ -35,34 +35,6 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException
 # Selenium: Path to WebDriver
 path_to_webdriver = "C:\Program Files (x86)\chromedriver.exe"
 
-# Command line argument parser
-parser = argparse.ArgumentParser()
-
-# Add an argument '-t' or '--testing' to run the program in testing mode
-parser.add_argument(
-    "-t", "--testing", help="Run the program in testing mode", action="store_true")
-
-# Add an argument '-s' or '--sid' to specify the RMP school id
-parser.add_argument(
-    "-s", "--sid", help="Specify the RMP school id", type=int, default=-1)
-
-# Add an argument '-prt' or '--page_reload_timeout' to specify the timeout for reloading the RMP page
-parser.add_argument(
-    "-prt", "--page_reload_timeout", help="Specify the timeout for reloading the RMP page", type=int)
-
-# Add an argument '-smt' or '--show_more_timeout' to specify the timeout for clicking the show more button
-parser.add_argument(
-    "-smt", "--show_more_timeout", help="Specify the timeout for clicking the show more button", type=int)
-
-# Add an argument '-f' or '--file_path' to specify the file path to store the scraped data
-parser.add_argument(
-    "-f", "--file_path", help="Specify the file path to store the scraped data", type=str)
-
-# Add an argument '-config' or '--config' to specify the config file path if you want to use a config file instead of specifying the arguments
-parser.add_argument(
-    "-config", "--config", help="Specify the config file path if you want to use a config file instead of specifying the arguments", type=str)
-
-args = parser.parse_args()
 
 class RateMyProf:
     """
@@ -136,7 +108,7 @@ class RateMyProf:
         Return: true if successful, false if not.
         """
         testing = args.testing  # Testing mode
-        
+
         if testing:
             print("-----------------scrape_professors()----------------")
 
@@ -196,7 +168,8 @@ class RateMyProf:
         # (total number of professors found - first 8 professors) // (professors per page load)
         num_press_show_more = (num_profs - 8) // 8
 
-        show_more_timeout_exception_count = 0  # Number of times the show more timeout has been reached
+        # Number of times the show more timeout has been reached
+        show_more_timeout_exception_count = 0
         while num_press_show_more:
             try:
                 # Show more button
@@ -221,7 +194,8 @@ class RateMyProf:
                         "Show more timeout exception max count reached (3). Breaking out of 'Show More' loop.")
                     break
                 if testing:
-                    print("Encountered Selenium TimeoutException when pressing 'Show More'.")
+                    print(
+                        "Encountered Selenium TimeoutException when pressing 'Show More'.")
                     print("Waiting 3 seconds and will retry pressing 'Show More'....")
                 time.sleep(3)
 
@@ -346,42 +320,87 @@ class RateMyProf:
 
         if testing:
             end = time.time()
-            print(str(i-1) + " professors scraped and written to, '" + file_path +"'.")
+            print(str(i-1) + " professors scraped and written to, '" +
+                  file_path + "'.")
             print("scrape_professors() finished in ", end - start, " seconds.")
             print("----------------------------------------------------")
 
         return True
 
+
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
+
+
 if __name__ == "__main__":
+
+    # Command line argument parser
+    parser = argparse.ArgumentParser()
+
+    # Add an argument '-t' or '--testing' to run the program in testing mode
+    parser.add_argument(
+        "-t", "--testing", help="Run the program in testing mode", type=str2bool, nargs='?',
+                        const=True)
+
+    # Add an argument '-s' or '--sid' to specify the RMP school id
+    parser.add_argument(
+        "-s", "--sid", help="Specify the RMP school id", type=int)
+
+    # Add an argument '-prt' or '--page_reload_timeout' to specify the timeout for reloading the RMP page
+    parser.add_argument(
+        "-prt", "--page_reload_timeout", help="Specify the timeout for reloading the RMP page", type=int)
+
+    # Add an argument '-smt' or '--show_more_timeout' to specify the timeout for clicking the show more button
+    parser.add_argument(
+        "-smt", "--show_more_timeout", help="Specify the timeout for clicking the show more button", type=int)
+
+    # Add an argument '-f' or '--file_path' to specify the file path to store the scraped data
+    parser.add_argument(
+        "-f", "--file_path", help="Specify the file path to store the scraped data", type=str)
+
+    # Add an argument '-config' or '--config' to specify the config file path if you want to use a config file instead of specifying the arguments
+    parser.add_argument(
+        "-config", "--config", help="Specify the config file path if you want to use a config file instead of specifying the arguments", type=str)
+
+    args = parser.parse_args()
+
+    print("args ", args)
 
     if args.config is not None:
         config = importlib.import_module(
             args.config)  # Load the config.py file
 
-        # Set the arguments to the values specified in the config file if the argument is not specified in the command line
-        if config.sid is not None and args.sid == -1:
-            args.sid = config.sid
+        # If the arguments are not specified, use the config file
+        if args.sid == None and config.sid is not None:
+                args.sid = config.sid
 
-        if config.testing is not None and args.testing is False:
+        if args.testing is None and config.testing is not None:
             args.testing = config.testing
 
         if config.page_reload_timeout is not None and args.page_reload_timeout is None:
             args.page_reload_timeout = config.page_reload_timeout
 
-        if config.show_more_timeout is not None and args.show_more_timeout is None:
+        if args.show_more_timeout is None and config.show_more_timeout is not None:
             args.show_more_timeout = config.show_more_timeout
 
-        if config.file_path is not None and args.file_path is None:
+        if args.file_path is None and config.file_path is not None:
             args.file_path = config.file_path
 
     # Required arguments check
-    if args.sid == -1:
+    if args.sid == None:
         print("Error: No RMP school id specified.")
         print("Please specify the RMP school id using the -s or --sid argument.")
         print("Alternatively, you can specify the RMP school id in the config.py file.")
         exit(1)
 
-    if args.testing:
+    if args.testing is not None and args.testing:
         print("----------------------TESTING-----------------------")
         start = time.time()
         print("Arguments:")
