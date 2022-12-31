@@ -1,2 +1,2 @@
 # Move the env file to gitignore
-.env/
+env/
