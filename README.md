@@ -9,26 +9,29 @@ A Python script that uses Selenium to scrape professor ratings from [RateMyProfe
 ## Usage
 Using the script is simple but requires the user to already have the `sid`, that is the unique school ID, of the school they want to scrape as assigned by RateMyProfessors.com. The `sid` can be found by searching for the school on RateMyProfessors.com and looking at the URL. For example, the `sid` for the University of Wisconsin-Madison is `1256` and can be found in the URL `https://www.ratemyprofessors.com/search/teachers?query=*&sid=1256`. I want to point out that the  `sid` should be a unique identifier for the university, however, I have found that some universities have multiple. For example, the University of Wisconsin-Madison has `1256` and `18418`. I have not found any other universities with multiple IDs, but if you find one, please let me know. In the meantime have reached out to RateMyProfessors.com to see if they can clarify this issue.
 
-Once you have the `sid`, install the required dependencies with,
+Once you have the `sid`, install the required dependencies and run the script with,
 
 ```{bash}
 pip3 install -r requirements.txt
+python3 rmp_scrape/fetch.py -s YourSID
 ```
 
-and run the `rmp_scrape/fetch.py` script using command line with arguments specified using the following flags:
+### Command Line Arguments
 
-### Required Arguments
+There are a number of command line arguments that can be specified using the following flags:
+
+#### Required Arguments
 - `-s` or `--sid`: The `sid` of the school you want to scrape. 
 
-### Optional Arguments
+#### Optional Arguments
 - `-config` or `--config`: The config file path if you want to use a config file instead of specifying the arguments.  
 - `-f` or `--file_path`: The file path to store the scraped data.
 - `-prt` or `--page_reload_timeout`: The timeout for reloading the RMP page.
 - `-smt` or `--show_more_timeout`: The timeout for clicking the show more button.
 
-You have the option to run the script directly from the command line by specifying which arguments you want to use, but only the `-sid` argument is required. If you do not specify the `file_path` argument, the script will save the scraped data to a file named `profs_from_YourSchoolName.json` in the project directory. 
+You have the option to run the script directly from the command line by specifying which arguments you want to use, but only the `-s` or `-sid` argument is required. If you do not specify the `-f` or `-file_path` argument, the script will save the scraped data to a file named `profs_from_YourSchoolName.json` in the project directory. 
 
-You can also run the script from the command line passing only the `-config` argument, as long as the provided config file path is a `.py` file located within the `/rmp_scrape` directory that contains (at the minimum) a valid `sid`. For example, a user can create a file named `config.py` in the `/rmp_scrape` directory with the following arguments set,
+You can also run the script from the command line passing only the `-config` argument, as long as the provided config file path is a `.py` file located within the `/rmp_scrape` directory that contains (at the minimum) a valid `sid`. For example, a user can create a file named `config.py` in the `/rmp_scrape` directory with the following arguments,
 
 ```{python}
 sid = 1256  
@@ -49,9 +52,15 @@ One important thing to note is that by default any arguments that are used in th
 python3 rmp_scrape/fetch.py -config config -t False
 ```
 
-Would not run the script in `testing` mode even though `testing=True` in the config file.
+Would not run the script in `testing` mode even though `testing=True` in the config file. Or for another example, running,
 
-The `page_reload_timeout` and `show_more_timeout` arguments are options that I have added to help with the scraping process. The `page_reload_timeout` argument is used to specify how many seconds the script should spend trying to reload the page `www.ratemyprofessors.com/search/teachers?query=*&sid=YourSID`. For some reason while working on this script, I noticed that the page would sometimes not load properly. The `page_reload_timeout` argument allows the user to specify how many seconds the script should spend attempting to load the page. Whereas most of the time when you visit this page, you will see a reasonable amount of professors for a given school, like so:
+```{bash}
+python3 rmp_scrape/fetch.py -config config -s 0001
+```
+
+will run the script for `sid = 0001` instead of `sid = 1256` as specified in the config file. This makes it easy to save default configurations with slight modifications when running from the command line.
+
+The `-prt` or `-page_reload_timeout` and the `smt` or `show_more_timeout` arguments are options that I have added to help with the scraping process. The `page_reload_timeout` argument is used to specify how many seconds the script should spend trying to reload the page `www.ratemyprofessors.com/search/teachers?query=*&sid=YourSID`. For some reason while working on this script, I noticed that the page would sometimes not load properly. The `page_reload_timeout` argument allows the user to specify how many seconds the script should spend attempting to load the page. Whereas most of the time when you visit this page, you will see a reasonable amount of professors for a given school, like so:
 
 ![RMP_reasonable](https://user-images.githubusercontent.com/72423203/210110116-e145656f-eca9-4800-86e5-fce39f0c714d.png)
 
