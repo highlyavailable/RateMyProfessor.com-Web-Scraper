@@ -5,17 +5,15 @@ __email__ = "pbryant2@wisc.edu"
 __status__ = "Development"
 
 # Standard library imports
-import requests
 import json
-import math
 import time
 import os
-import sys
 import argparse
 import importlib
 
 # Local imports
 from professor import Professor
+import driver_config
 
 # Web scraping imports
 import re                                               # Regular expressions
@@ -33,8 +31,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
 # Selenium: Path to WebDriver
-path_to_webdriver = "C:\Program Files (x86)\chromedriver.exe"
-
+path_to_webdriver = driver_config.path_to_webdriver
 
 class RateMyProf:
     """
