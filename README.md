@@ -13,7 +13,7 @@ Using the script is simple but requires the user to already have the `sid`, that
 https://www.ratemyprofessors.com/search/teachers?query=*&sid=1256
 ```
 
-I want to point out that the  `sid` should be a unique identifier for the university, however, I have found that some universities have multiple. For example, the University of Wisconsin-Madison has `1256` and `18418`. I have not found any other universities with multiple IDs, but if you find one, please let me know. In the meantime have reached out to RateMyProfessors.com to see if they can clarify this issue.
+I want to point out that the `sid` should be a unique identifier for the university, however, I have found that some universities have multiple. For example, professors are listed for the University of Wisconsin-Madison for `sid` values of each `1256` and `18418`. I have not found any other universities with multiple IDs, but if you find one, please let me know. In the meantime have reached out to RateMyProfessors.com to see if they can clarify this issue.
 
 Once you have the `sid`, install the required dependencies and run the script with,
 
