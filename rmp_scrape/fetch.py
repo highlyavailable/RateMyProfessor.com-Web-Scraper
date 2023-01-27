@@ -11,27 +11,20 @@ import os
 import argparse
 import importlib
 
-# Local imports
-from professor import Professor
-import driver_config
+# Path to Chrome WebDriver
+import driver_config           
 
-# Web scraping imports
-import re                                               # Regular expressions
-from bs4 import BeautifulSoup                           # BeautifulSoup
-from selenium import webdriver                          # Selenium
-from selenium.webdriver.common.keys import Keys         # Selenium: Keyboard keys
-# Selenium: Find elements by
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.service import Service   # Selenium: Path to WebDriver
-# Selenium: Wait for page to load
-from selenium.webdriver.support.ui import WebDriverWait
-# Selenium: Expected conditions for page load
-from selenium.webdriver.support import expected_conditions as EC
-# Selenium: Timeout exception
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
+# Selenium imports
+from selenium import webdriver                                                  # Webdriver
+from selenium.webdriver.common.by import By                                     # Find elements by
+from selenium.webdriver.chrome.service import Service                           # Chrome service
+from selenium.webdriver.support.ui import WebDriverWait                         # Wait for elements to load
+from selenium.webdriver.support import expected_conditions as EC                # Expected conditions
+from selenium.common.exceptions import TimeoutException, NoSuchElementException # Misc. exceptions
 
-# Selenium: Path to WebDriver
-path_to_webdriver = driver_config.path_to_webdriver
+path_to_webdriver = driver_config.path_to_webdriver # Init global path to WebDriver
+
+const_rmp_search_url = 'https://www.ratemyprofessors.com/search/teachers?query=*&sid=' # RMP professor search URL
 
 class RateMyProf:
     """
@@ -43,21 +36,17 @@ class RateMyProf:
         Constructor for RateMyProfApi class.
         Args: school_id (int): Unique School ID that RateMyProfessor assigns to identify each University.
         """
-        self.school_id = school_id  # Parameter for the school ID
-
-        self.url = 'https://www.ratemyprofessors.com/search/teachers?query=*&sid=' + \
-            str(self.school_id)
-
-        self.options = webdriver.ChromeOptions()  # Create a new Chrome session
+        self.school_id = school_id                            # Parameter for the school ID
+        self.url = const_rmp_search_url + str(self.school_id) # Query URL for the school ID
+        self.options = webdriver.ChromeOptions()              # Create a new Chrome session
 
         # Ignore SSL certificate errors
         self.options.add_argument('--ignore-certificate-errors')
         self.options.add_argument('--ignore-ssl-errors')
         self.options.add_argument('--ignore-certificate-errors-spki-list')
-        self.options.add_argument('log-level=3')  # Ignore warnings
+        self.options.add_argument('log-level=3')
 
-        # Path to WebDriver
-        self.service = Service(path_to_webdriver)
+        self.service = Service(path_to_webdriver) # Init Chrome service
 
     def num_professors(self, testing=False):
         """
@@ -70,28 +59,23 @@ class RateMyProf:
 
         # Check RMP page error
         try:
-            # RMP error message Xpath
-            Xpath = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[1]/div/div/div'
-            # Find the error message element
-            element = self.driver.find_element(By.XPATH, Xpath)
-            error_message = element.text.strip().replace(
-                "\n", "")  # Save the error message text
-            # Error message string to check for
-            error_string = 'No professors with "" in their name'
+            Xpath = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[1]/div/div/div' # RMP error message Xpath
+            element = self.driver.find_element(By.XPATH, Xpath)     # Find the error message element
+            error_message = element.text.strip().replace("\n", "")  # Save the error message text
+            error_string = 'No professors with "" in their name'    # Error message comp string
+            
             # If the error message string is in the error message, return 0.
             if error_string in error_message:
                 print(
                     "***WARNING: RateMyProfessors.com error, returned total number of professors on RMP. Reloading page...***")
                 return 0
+        # If the error message element is not found, continue.
         except:
             pass
 
-        # Find the number of professors
-        Xpath = '//h1[@data-testid="pagination-header-main-results"]'
-        element = self.driver.find_element(By.XPATH, Xpath)
-
-        # Save the first word from the element text, which is the number of professors.
-        num_profs = int(element.text.split()[0])
+        Xpath = '//h1[@data-testid="pagination-header-main-results"]' # Xpath for the number of professors
+        element = self.driver.find_element(By.XPATH, Xpath)           # Find the element
+        num_profs = int(element.text.split()[0])  # Save the number of professors (first word in the text)
 
         if testing:
             end = time.time()
@@ -113,86 +97,62 @@ class RateMyProf:
             print("University SID: ", self.school_id)
             start = time.time()
 
-        # Number of professors with RMP records associated with the given university SID.
-        num_profs = 0
+        num_profs = 0 # Number of professors
 
-        # Reload page until the number of professors is not 0.
+        # Reload page until the number of professors is not 0 (RMP error)
         timeout = time.time()
         while True:
-            # Create a new instance of the Chrome driver
-            self.driver = webdriver.Chrome(
-                service=self.service, options=self.options)
-            self.driver.get(self.url)  # Navigate to the page
-            num_profs = self.num_professors(testing)
+            self.driver = webdriver.Chrome(service=self.service, options=self.options) # Init Chrome driver
+            self.driver.get(self.url) # Load the URL
+            num_profs = self.num_professors(testing)  # Get the number of professors
 
             # If the number of professors is not 0, break out of the loop.
             if num_profs != 0:
                 break
-
             # If the number of professors is 0, close the driver and try again.
             else:
-                self.driver.quit()                      # Close the driver
+                self.driver.quit() # Close the driver
 
-                # Page reload timeout:
-                # If the page reload timeout option is set
+                # If PAGE RELOAD TIMEOUT option is set
                 if args.page_reload_timeout != None:
-                    # If the timeout has been reached, return false.
+                    # If PAGE RELOAD TIMEOUT has been reached, return false.
                     if timeout - time.time() >= args.page_reload_timeout:
                         if testing:
-                            print(
-                                "Timeout error waiting for num_professors(). Retrying num_professors()...")
+                            print("PAGE RELOAD TIMEOUT reached waiting for num_professors(). Returning False.")
                         return False
 
         if testing:
             print("-------------scrape_professors() cont.--------------")
 
-         # Xpath to the school name
-        school_name_xpath = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[1]/div/h1/span/b'
-
-        # Find the professor's school
-        school_name = self.driver.find_element(
-            By.XPATH, school_name_xpath).get_attribute('innerHTML')
+        school_name_xpath = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[1]/div/h1/span/b' # Xpath for the school name
+        school_name = self.driver.find_element(By.XPATH, school_name_xpath).get_attribute('innerHTML') # Find the school name
 
         # Click the show more button to load all professors
         if testing:
             print("School name: ", school_name, "\n")
             print("Clicking 'Show More' button...")
-
-        times_pressed = 0
-        timeout_show_more = time.time()  # Timeout for show more button
-
-        # Number of times the 'Show More' button should be pressed
-        # (total number of professors found - first 8 professors) // (professors per page load)
-        num_press_show_more = (num_profs - 8) // 8
-
-        # Number of times the show more timeout has been reached
-        show_more_timeout_exception_count = 0
-        while num_press_show_more:
+     
+        times_pressed = 0                     # Number of times the show more button has been pressed
+        show_more_timeout_exception_count = 0 # Number of times the show more timeout exception has occurred
+        timeout_show_more = time.time()       # Timeout for show more button
+        while True:
             try:
-                # Show more button
-                show_more_button_xpath = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[4]/button'
-                # show_more_button = self.driver.find_element(By.XPATH, show_more_button_xpath)  # Find the show more button
+                show_more_button_xpath = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[4]/button' # Show more button xpath
+
+                # Wait for the show more button to be clickable, then click it.
                 self.driver.execute_script("arguments[0].click();", WebDriverWait(
                     self.driver, 20).until(EC.element_to_be_clickable((By.XPATH, show_more_button_xpath))))
 
-                times_pressed += 1
-                num_press_show_more -= 1
-
-                if args.show_more_timeout != None:
-                    if time.time() - timeout_show_more >= args.show_more_timeout:
-                        print(
-                            "Show more timeout reached (" + str(args.show_more_timeout) + " seconds) when waiting for 'Show More' button.")
-                        break
+                times_pressed += 1 # Increment the number of times the show more button has been pressed
 
             except TimeoutException as e:
                 show_more_timeout_exception_count += 1
-                if show_more_timeout_exception_count >= 3:
-                    print(
-                        "Show more timeout exception max count reached (3). Breaking out of 'Show More' loop.")
-                    break
+                if args.show_more_timeout != None:
+                    if show_more_timeout_exception_count >= args.show_more_timeout:
+                        print("Show more timeout exception max count reached (" + str(args.show_more_timeout) + "). Breaking out of 'Show More' loop.")
+                        break
                 if testing:
-                    print(
-                        "Encountered Selenium TimeoutException when pressing 'Show More'.")
+                    print("Encountered Selenium TimeoutException when pressing 'Show More'.")
                     print("Waiting 3 seconds and will retry pressing 'Show More'....")
                 time.sleep(3)
 
@@ -202,7 +162,7 @@ class RateMyProf:
                 break
 
         if testing:
-            print("Done pressing 'Show More' button (pressed "+str(times_pressed) + " times in " +
+            print("Done pressing 'Show More' button (pressed "+ str(times_pressed) + " times in " +
                   str(time.time() - timeout_show_more), " seconds.)...\n")
 
         # If the file path is specified, use that file path. Otherwise, use the default file path.
@@ -344,7 +304,7 @@ if __name__ == "__main__":
     # Add an argument '-t' or '--testing' to run the program in testing mode
     parser.add_argument(
         "-t", "--testing", help="Run the program in testing mode", type=str2bool, nargs='?',
-                        const=True)
+        const=True)
 
     # Add an argument '-s' or '--sid' to specify the RMP school id
     parser.add_argument(
@@ -368,7 +328,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    print("args ", args)
+    # print("args ", args)
 
     if args.config is not None:
         config = importlib.import_module(
@@ -376,7 +336,7 @@ if __name__ == "__main__":
 
         # If the arguments are not specified, use the config file
         if args.sid == None and config.sid is not None:
-                args.sid = config.sid
+            args.sid = config.sid
 
         if args.testing is None and config.testing is not None:
             args.testing = config.testing
