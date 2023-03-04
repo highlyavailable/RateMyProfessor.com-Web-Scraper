@@ -39,12 +39,14 @@ class RateMyProf:
         self.school_id = school_id                            # Parameter for the school ID
         self.url = const_rmp_search_url + str(self.school_id) # Query URL for the school ID
         self.options = webdriver.ChromeOptions()              # Create a new Chrome session
+        self.options.headless = True
 
         # Ignore SSL certificate errors
         self.options.add_argument('--ignore-certificate-errors')
         self.options.add_argument('--ignore-ssl-errors')
         self.options.add_argument('--ignore-certificate-errors-spki-list')
         self.options.add_argument('log-level=3')
+        self.driver = None
 
         self.service = Service(path_to_webdriver) # Init Chrome service
 
@@ -114,7 +116,7 @@ class RateMyProf:
                 self.driver.quit() # Close the driver
 
                 # If PAGE RELOAD TIMEOUT option is set
-                if args.page_reload_timeout != None:
+                if args.page_reload_timeout is not None:
                     # If PAGE RELOAD TIMEOUT has been reached, return false.
                     if timeout - time.time() >= args.page_reload_timeout:
                         if testing:
@@ -126,47 +128,40 @@ class RateMyProf:
 
         school_name_xpath = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[1]/div/h1/span/b' # Xpath for the school name
         school_name = self.driver.find_element(By.XPATH, school_name_xpath).get_attribute('innerHTML') # Find the school name
-
-        # Click the show more button to load all professors
         if testing:
             print("School name: ", school_name, "\n")
-            print("Clicking 'Show More' button...")
+        # Click the show more button to load all professors
+
      
         times_pressed = 0                     # Number of times the show more button has been pressed
-        show_more_timeout_exception_count = 0 # Number of times the show more timeout exception has occurred
         timeout_show_more = time.time()       # Timeout for show more button
-        while True:
+        show_more_button_xpath = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[4]/button'
+        while self.driver.find_elements(By.XPATH, show_more_button_xpath):
             try:
-                show_more_button_xpath = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[4]/button' # Show more button xpath
+                 # Show more button xpath
 
                 # Wait for the show more button to be clickable, then click it.
                 self.driver.execute_script("arguments[0].click();", WebDriverWait(
                     self.driver, 20).until(EC.element_to_be_clickable((By.XPATH, show_more_button_xpath))))
 
                 times_pressed += 1 # Increment the number of times the show more button has been pressed
+                if testing:
+                     print(f"Clicking 'Show More' button {times_pressed} times.")
+
 
             except TimeoutException as e:
-                show_more_timeout_exception_count += 1
-                if args.show_more_timeout != None:
-                    if show_more_timeout_exception_count >= args.show_more_timeout:
-                        print("Show more timeout exception max count reached (" + str(args.show_more_timeout) + "). Breaking out of 'Show More' loop.")
-                        break
-                if testing:
-                    print("Encountered Selenium TimeoutException when pressing 'Show More'.")
-                    print("Waiting 3 seconds and will retry pressing 'Show More'....")
-                time.sleep(3)
+                print(f"TimeoutException: {e}")
+
 
             except IndexError as e:
-                if testing:
-                    print("Encountered IndexError while pressing 'Show More'.")
-                break
+                print(f"IndexError: {e}")
 
         if testing:
             print("Done pressing 'Show More' button (pressed "+ str(times_pressed) + " times in " +
                   str(time.time() - timeout_show_more), " seconds.)...\n")
 
         # If the file path is specified, use that file path. Otherwise, use the default file path.
-        if args.file_path != None:
+        if args.file_path is not None:
             file_path = args.file_path
         else:
             file_path = 'profs_from_' + school_name.replace(" ", "") + '.json'
@@ -184,15 +179,15 @@ class RateMyProf:
         # Click the show more button until all professors are shown
         for i in range(1, num_profs):
             all_prof_dict = {}  # Dictionary to store all professor data
-            prof_dict = {}  # Dictionary to store professor data
-            prof_dict["Name"] = ""
-            prof_dict["School"] = ""
-            prof_dict["Department"] = ""
-            prof_dict["Rating"] = ""
-            prof_dict["NumRatings"] = ""
-            prof_dict["Difficulty"] = ""
-            prof_dict["WouldTakeAgain"] = ""
-
+            prof_dict = {
+                "Name": "",
+                "School": "",
+                "Department": "",
+                "Rating": "",
+                "NumRatings": "",
+                "Difficulty": "",
+                "WouldTakeAgain": ""
+            }
             try:
                 # Xpath to the unique professor card
                 prof_card_div = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[3]/a[' + str(
@@ -335,7 +330,7 @@ if __name__ == "__main__":
             args.config)  # Load the config.py file
 
         # If the arguments are not specified, use the config file
-        if args.sid == None and config.sid is not None:
+        if args.sid is None and config.sid is not None:
             args.sid = config.sid
 
         if args.testing is None and config.testing is not None:
@@ -351,7 +346,7 @@ if __name__ == "__main__":
             args.file_path = config.file_path
 
     # Required arguments check
-    if args.sid == None:
+    if args.sid is None:
         print("Error: No RMP school id specified.")
         print("Please specify the RMP school id using the -s or --sid argument.")
         print("Alternatively, you can specify the RMP school id in the config.py file.")

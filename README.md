@@ -6,6 +6,23 @@ A Python script that uses Selenium to scrape professor ratings from [RateMyProfe
 - Selenium
 - ChromeDriver
 
+## Changelog
+
+- Added headless mode for selenium webdriver
+
+- Modified one of the while loops to take a condition that is falsy when the show more button is no longer there.
+  - Modified in lines 139 - 159
+  - Modified the error handling
+
+- Fixed non pythonic comparison operator syntax
+
+- Added a print statement during testing that shows the number of times show more is pressed, so that the user knows the function is running
+
+- Refactored dictionary syntax
+
+- Added the official python gitignore, so that files like venv, .idea aren't committed
+
+- PRT flag should no longer be necessary when testing to exit the while loop. Before if you did not have the prt flag, it wouldn't exit the ```while True``` loop.
 ## Usage
 Using the script is simple but requires the user to already have the `sid`, that is the unique school ID, of the school they want to scrape as assigned by RateMyProfessors.com. The `sid` can be found by searching for the school on RateMyProfessors.com and looking at the URL. For example, the `sid` for the University of Wisconsin-Madison is `1256` and can be found in the URL, 
 
@@ -41,8 +58,9 @@ You have the option to run the script directly from the command line by specifyi
 
 You can also run the script from the command line passing only the `-config` argument, as long as the provided config file path is a `.py` file located within the `/rmp_scrape` directory that contains (at the minimum) a valid `sid`. For example, a user can create a file named `config.py` in the `/rmp_scrape` directory with the following arguments,
 
+Better to use a smaller school like 1224 which is York University as testing, since larger schools can take a very long time to scrape.
 ```{python}
-sid = 1256  
+sid = 1224  
 testing = True
 page_reload_timeout = 100 # 100 seconds
 show_more_timeout = 10 # 10 seconds
@@ -85,3 +103,4 @@ It also seems RateMyProfessors.com runs into some issues when a user presses the
 As a temporary fix, I have added the `show_more_timeout` argument to allow the user to specify how many seconds the script should continue pressing the 'Show More' button before the script scrapes the data from the page. The idea here is that after subsequent presses of the 'Show More' button, the page will start containing all professors from RateMyProfessors.com. Since this can be very large, the user can instead set a length of time that will result in a timeout so that the script isn't continuously pressing 'Show More' even when the professors appearing on the page may not be all from the school corresponding top the given `sid`. 
 
 This fix is not optimal, as after the page is filled with a lot of professors, the script must perform an additional comparison on all entries to ensure that only professors that are from the school corresponding to the desired `sid` are written to the JSON file.
+
