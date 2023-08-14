@@ -12,7 +12,7 @@ import argparse
 import importlib
 
 # Path to Chrome WebDriver
-import driver_config           
+import rmp_scrape.driver_config as driver_config
 
 # Selenium imports
 from selenium import webdriver                                                  # Webdriver
@@ -22,9 +22,10 @@ from selenium.webdriver.support.ui import WebDriverWait                         
 from selenium.webdriver.support import expected_conditions as EC                # Expected conditions
 from selenium.common.exceptions import TimeoutException, NoSuchElementException # Misc. exceptions
 
+dev_path = 'C:\Program Files (x86)\chrome-win64\chrome.exe'
 path_to_webdriver = driver_config.path_to_webdriver # Init global path to WebDriver
 
-const_rmp_search_url = 'https://www.ratemyprofessors.com/search/teachers?query=*&sid=' # RMP professor search URL
+const_rmp_search_url = 'https://www.ratemyprofessors.com/search/professors/{sid}?q=*' # RMP professor search URL
 
 class RateMyProf:
     """
@@ -37,8 +38,9 @@ class RateMyProf:
         Args: school_id (int): Unique School ID that RateMyProfessor assigns to identify each University.
         """
         self.school_id = school_id                            # Parameter for the school ID
-        self.url = const_rmp_search_url + str(self.school_id) # Query URL for the school ID
-        self.options = webdriver.ChromeOptions()              # Create a new Chrome session
+        self.url = const_rmp_search_url.format(sid=self.school_id) # Query URL for the school ID
+        self.options = webdriver.ChromeOptions() 
+        self.options.binary_location = dev_path             # Create a new Chrome session
         self.options.headless = True
 
         # Ignore SSL certificate errors
