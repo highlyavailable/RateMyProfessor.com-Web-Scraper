@@ -34,6 +34,10 @@ I want to point out that the `sid` should be a unique identifier for the univers
 
 You must also install ChromeDriver to your machine and specify the path of the ChromeDriver executable in the `driver_config.py` file. You can download the appropriate version for your system [here](https://chromedriver.chromium.org/downloads).
 
+Chrome has changed the way chromedriver and 'automated testing' works with respect to their browser. In order to avoid errors with versioning or unexpected program bugs, it is recommended to install the stable Chrome.exe from the chrome-for-testing site [here](https://googlechromelabs.github.io/chrome-for-testing/). 
+
+After extracting the zip, please add the path of the Chrome.exe to the main `fetch.py` file. This path will be assigned to the `options.binary_location` to ensure minimal issues with ChromeDriver.
+
 Once you have the `sid` and ChromeDriver installed, install the required dependencies and run the script with,
 
 ```{bash}
