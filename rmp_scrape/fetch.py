@@ -10,27 +10,31 @@ import time
 import os
 import argparse
 import importlib
+import logging
 
 # Path to Chrome WebDriver
 import rmp_scrape.driver_config as driver_config
 
 # Selenium imports
-from selenium import webdriver                                                  # Webdriver
-from selenium.webdriver.common.by import By                                     # Find elements by
-from selenium.webdriver.chrome.service import Service                           # Chrome service
-from selenium.webdriver.support.ui import WebDriverWait                         # Wait for elements to load
-from selenium.webdriver.support import expected_conditions as EC                # Expected conditions
-from selenium.common.exceptions import TimeoutException, NoSuchElementException # Misc. exceptions
+from selenium import webdriver  # Webdriver
+from selenium.webdriver.common.by import By  # Find elements by
+from selenium.webdriver.chrome.service import Service  # Chrome service
+from selenium.webdriver.support.ui import WebDriverWait  # Wait for elements to load
+from selenium.webdriver.support import expected_conditions as EC  # Expected conditions
+from selenium.common.exceptions import TimeoutException, NoSuchElementException  # Misc. exceptions
 
 dev_path = 'C:\Program Files (x86)\chrome-win64\chrome.exe'
-path_to_webdriver = driver_config.path_to_webdriver # Init global path to WebDriver
+path_to_webdriver = driver_config.path_to_webdriver  # Init global path to WebDriver
 
-const_rmp_search_url = 'https://www.ratemyprofessors.com/search/professors/{sid}?q=*' # RMP professor search URL
+const_rmp_search_url = 'https://www.ratemyprofessors.com/search/professors/{sid}?q=*'  # RMP professor search URL
+
 
 class RateMyProf:
     """
     RateMyProf class contains functions to scrape professor data from RateMyProfessors.com
     """
+
+    logging.basicConfig(level=logging.DEBUG, format='%(asctime)s:%(levelname)s:%(message)s')  # Basic config to logs
 
     def __init__(self, school_id):
         """
