@@ -27,7 +27,7 @@ A Python script that uses Selenium to scrape professor ratings from [RateMyProfe
 Using the script is simple but requires the user to already have the `sid`, that is the unique school ID, of the school they want to scrape as assigned by RateMyProfessors.com. The `sid` can be found by searching for the school on RateMyProfessors.com and looking at the URL. For example, the `sid` for the University of Wisconsin-Madison is `1256` and can be found in the URL, 
 
 ```{bash}
-https://www.ratemyprofessors.com/search/teachers?query=*&sid=1256
+https://www.ratemyprofessors.com/search/professors?query=*&sid=1256
 ```
 
 I want to point out that the `sid` should be a unique identifier for the university, however, I have found that some universities have multiple. For example, professors are listed for the University of Wisconsin-Madison for `sid` values of each `1256` and `18418`. I have not found any other universities with multiple IDs, but if you find one, please let me know. In the meantime have reached out to RateMyProfessors.com to see if they can clarify this issue.
@@ -100,7 +100,7 @@ On other occasions, you will see a page that looks like this despite the fact th
 
 To combat this the `page_reload_timeout` command line argument will let you designate how many seconds you want to spend reloading the page until the correct page loads. This is not optimal, but I assume it is an issue with RateMyProfessors.com's internals and is only used so that the script is functional. For most if not all use cases, this should not be set or should be set arbitrarily high since after a few attempts to reload the page it seems to always return to a reasonable value.
 
-It also seems RateMyProfessors.com runs into some issues when a user presses the 'Show More' button at the bottom of the professor's list for a given school (e.g. [www.ratemyprofessors.com/search/teachers?query=*&sid=1256](https://www.ratemyprofessors.com/search/teachers?query=*&sid=1256). After pressing the 'Show More' button the site will on occasion load the page with professors at a different school than the one corresponding to the given `sid`. For example, here is a screenshot of the page after accessing the professors for the University of Wisconsin-Madison and then pressing the 'Show More' button four times. As you can see, the page is now showing a professor from Grand Valley State University, and subsequent presses will show professors from other schools. 
+It also seems RateMyProfessors.com runs into some issues when a user presses the 'Show More' button at the bottom of the professor's list for a given school (e.g. [www.ratemyprofessors.com/search/professors?query=*&sid=1256](https://www.ratemyprofessors.com/search/professors?query=*&sid=1256). After pressing the 'Show More' button the site will on occasion load the page with professors at a different school than the one corresponding to the given `sid`. For example, here is a screenshot of the page after accessing the professors for the University of Wisconsin-Madison and then pressing the 'Show More' button four times. As you can see, the page is now showing a professor from Grand Valley State University, and subsequent presses will show professors from other schools. 
  
 ![RMP_error_2](https://user-images.githubusercontent.com/72423203/210110197-f4235619-e65f-4d72-b03e-163277a7726d.png)
 
