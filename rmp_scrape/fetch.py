@@ -1,7 +1,7 @@
 __author__ = "Peter Bryant"
 __version__ = "1.0.0"
 __maintainer__ = "Peter Bryant"
-__email__ = "pbryant2@wisc.edu"
+__email__ = "peter.bryant@gatech.edu"
 __status__ = "Development"
 
 # Standard library imports
@@ -12,84 +12,77 @@ import argparse
 import importlib
 import logging
 
-# Path to Chrome WebDriver
-import rmp_scrape.driver_config as driver_config
+import config
 
 # Selenium imports
-from selenium import webdriver  # Webdriver
+from selenium import webdriver # Webdriver
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By  # Find elements by
-from selenium.webdriver.chrome.service import Service  # Chrome service
-from selenium.webdriver.support.ui import WebDriverWait  # Wait for elements to load
-from selenium.webdriver.support import expected_conditions as EC  # Expected conditions
-from selenium.common.exceptions import TimeoutException, NoSuchElementException  # Misc. exceptions
 
-dev_path = 'C:\Program Files (x86)\chrome-win64\chrome.exe'
-path_to_webdriver = driver_config.path_to_webdriver  # Init global path to WebDriver
+from selenium import webdriver 
+from selenium.webdriver.chrome.service import Service 
+from selenium.webdriver.chrome.options import Options
+# from selenium.webdriver.support.ui import WebDriverWait  # Wait for elements to load
+# from selenium.webdriver.support import expected_conditions as EC  # Expected conditions
+# from selenium.common.exceptions import TimeoutException, NoSuchElementException  # Misc. exceptions
 
-const_rmp_search_url = 'https://www.ratemyprofessors.com/search/professors/{sid}?q=*'  # RMP professor search URL
+# Global
+const_rmp_search_url = 'https://www.ratemyprofessors.com/search/professors' # RMP professor search URL
+# const_rmp_search_url = 'https://www.ratemyprofessors.com/search/professors/{sid}?q=*'  # RMP professor search URL
 
-
-class RateMyProf:
+class RMPSchool:
     """
-    RateMyProf class contains functions to scrape professor data from RateMyProfessors.com
+    Represents an instance of a school listed on RateMyProfessors.com, contains functions to instantiate School
+    attributes, and supports and export to static JSON dump.
     """
 
-    logging.basicConfig(level=logging.DEBUG, format='%(asctime)s:%(levelname)s:%(message)s')  # Basic config to logs
+    # logging.basicConfig(level=logging.DEBUG, format='%(asctime)s:%(levelname)s:%(message)s')  # Basic config to logs
 
     def __init__(self, school_id):
         """
-        Constructor for RateMyProfApi class.
-        Args: school_id (int): Unique School ID that RateMyProfessor assigns to identify each University.
+        Constructor for RMPSchool class.
+        :param school_id (int): The unique school ID that RateMyProfessor assigns to identify each University.
         """
-        self.school_id = school_id  # Parameter for the school ID
-        self.url = const_rmp_search_url.format(sid=self.school_id)  # Query URL for the school ID
+        self.school_id = school_id                                               # Parameter for the school ID
+        self.rmp_professors_endpoint = f"{const_rmp_search_url}/{school_id}?q=*" # Build request endpoint for the school ID
+        
+        # Instantiate Chrome Options
         self.options = webdriver.ChromeOptions()
-        self.options.binary_location = dev_path  # Create a new Chrome session
-        self.options.headless = True
-
-        # Ignore SSL certificate errors
+        # self.options.add_argument('--headless')
         self.options.add_argument('--ignore-certificate-errors')
         self.options.add_argument('--ignore-ssl-errors')
         self.options.add_argument('--ignore-certificate-errors-spki-list')
         self.options.add_argument('log-level=3')
-        self.driver = None
+        self.options.add_argument("start-maximized")
+        self.options.add_argument("--allow-running-insecure-content")
+        self.options.add_experimental_option('excludeSwitches', ['enable-logging'])
 
-        self.service = Service(path_to_webdriver)  # Init Chrome service
-
-    def num_professors(self, testing=False):
+        # Create web driver
+        self.driver = webdriver.Chrome()              # Instantiate the webdriver object
+        self.driver.get(self.rmp_professors_endpoint) # Load the RMP professors search page
+        
+        # Set attributes for the School
+        # self.school_name = self.get_school_name()
+        self.get_num_professors = self.get_num_professors()
+        print(self.get_num_professors)
+        
+    def get_school_name(self):
+        """Fetches the school name from the professors search endpoint.
+        :returns school_name (str): The full school name corresponding to the SID.
         """
-        Returns the number of professor results for the given school_id.
+        Xpath = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[1]/div/h1/span/b'  # RMP error message Xpath
+        school_name_element = self.driver.find_element(by=By.XPATH, value=Xpath)  # Find the error message element'
+        school_name = school_name_element.text.strip()
+        return school_name
+
+    def get_num_professors(self, testing=False):
+        """Fetches the number of professors from the professors search endpoint.
+        :returns num_professors (int): The number of professors listed on the professors search endpoint.
         """
-
-        if testing:
-            logging.debug("-----------------num_professors()-------------------")
-            start = time.time()
-
-        # Check RMP page error
-        try:
-            Xpath = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[1]/div/div/div'  # RMP error message Xpath
-            element = self.driver.find_element(By.XPATH, Xpath)  # Find the error message element
-            error_message = element.text.strip().replace("\n", "")  # Save the error message text
-            error_string = 'No professors with "" in their name'  # Error message comp string
-
-            # If the error message string is in the error message, return 0.
-            if error_string in error_message:
-                logging.warning("***RateMyProfessors.com error, returned total number of professors on RMP. Reloading "
-                                "page...***")
-                return 0
-        # If the error message element is not found, continue.
-        except:
-            pass
-
-        Xpath = '//h1[@data-testid="pagination-header-main-results"]'  # Xpath for the number of professors
-        element = self.driver.find_element(By.XPATH, Xpath)  # Find the element
-        num_profs = int(element.text.split()[0])  # Save the number of professors (first word in the text)
-
-        if testing:
-            end = time.time()
-            logging.info(f"Number of professors: {num_profs}")
-            logging.info(f"num_professors() finished in {end - start} seconds.")
-        return num_profs
+        Xpath = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[1]/div'  # RMP error message Xpath
+        search_results_header_id = self.driver.find_element(By.XPATH, Xpath)  # Find the error message element
+        num_professors = search_results_header_id.text.split('professors')[0].strip()
+        return num_professors
 
     def scrape_professors(self, args):
         """
@@ -99,10 +92,10 @@ class RateMyProf:
         testing = args.testing  # Testing mode
 
         if testing:
-            logging.debug("-----------------scrape_professors()----------------")
+            # logging.debug("-----------------scrape_professors()----------------")
 
-            logging.warning(f"Scraping professors from RateMyProfessors.com at \nURL: {self.url}")
-            logging.info(f"University SID: {self.school_id}")
+            # logging.warning(f"Scraping professors from RateMyProfessors.com at \nURL: {self.rmp_professors_endpoint}")
+            # logging.info(f"University SID: {self.school_id}")
             start = time.time()
 
         num_profs = 0  # Number of professors
@@ -110,8 +103,8 @@ class RateMyProf:
         # Reload page until the number of professors is not 0 (RMP error)
         timeout = time.time()
         while True:
-            self.driver = webdriver.Chrome(service=self.service, options=self.options)  # Init Chrome driver
-            self.driver.get(self.url)  # Load the URL
+            self.driver = webdriver.Chrome()
+            self.driver.get(self.rmp_professors_endpoint)  # Load the URL
             num_profs = self.num_professors(testing)  # Get the number of professors
 
             # If the number of professors is not 0, break out of the loop.
@@ -268,11 +261,11 @@ class RateMyProf:
                     f.write(",\n")
 
             except NoSuchElementException as e:
-                if testing:
-                    logging.critical(
-                        f"Encountered NoSuchElementException while scraping professor data at index {i}. No longer "
-                        f"scraping professor data.")
-                    # print("Error: ", e)
+                # if testing:
+                #     logging.critical(
+                #         f"Encountered NoSuchElementException while scraping professor data at index {i}. No longer "
+                #         f"scraping professor data.")
+                #     # print("Error: ", e)
                 break
 
         self.driver.close()
@@ -280,12 +273,11 @@ class RateMyProf:
 
         if testing:
             end = time.time()
-            logging.info(f"{i - 1} professors scraped and written to, '{file_path}'.")
-            logging.info(f"scrape_professors() finished in {end - start} seconds.")
-            logging.info("----------------------------------------------------")
+            # logging.info(f"{i - 1} professors scraped and written to, '{file_path}'.")
+            # logging.info(f"scrape_professors() finished in {end - start} seconds.")
+            # logging.info("----------------------------------------------------")
 
         return True
-
 
 def str2bool(v):
     if isinstance(v, bool):
@@ -297,84 +289,84 @@ def str2bool(v):
     else:
         raise argparse.ArgumentTypeError('Boolean value expected.')
 
-
 if __name__ == "__main__":
+    RateMyProf = RMPSchool(config.sid)
 
-    # Command line argument parser
-    parser = argparse.ArgumentParser()
+    # # Command line argument parser
+    # parser = argparse.ArgumentParser()
 
-    # Add an argument '-t' or '--testing' to run the program in testing mode
-    parser.add_argument(
-        "-t", "--testing", help="Run the program in testing mode", type=str2bool, nargs='?',
-        const=True)
+    # # Add an argument '-t' or '--testing' to run the program in testing mode
+    # parser.add_argument(
+    #     "-t", "--testing", help="Run the program in testing mode", type=str2bool, nargs='?',
+    #     const=True)
 
-    # Add an argument '-s' or '--sid' to specify the RMP school id
-    parser.add_argument(
-        "-s", "--sid", help="Specify the RMP school id", type=int)
+    # # Add an argument '-s' or '--sid' to specify the RMP school id
+    # parser.add_argument(
+    #     "-s", "--sid", help="Specify the RMP school id", type=int)
 
-    # Add an argument '-prt' or '--page_reload_timeout' to specify the timeout for reloading the RMP page
-    parser.add_argument(
-        "-prt", "--page_reload_timeout", help="Specify the timeout for reloading the RMP page", type=int)
+    # # Add an argument '-prt' or '--page_reload_timeout' to specify the timeout for reloading the RMP page
+    # parser.add_argument(
+    #     "-prt", "--page_reload_timeout", help="Specify the timeout for reloading the RMP page", type=int)
 
-    # Add an argument '-smt' or '--show_more_timeout' to specify the timeout for clicking the show more button
-    parser.add_argument(
-        "-smt", "--show_more_timeout", help="Specify the timeout for clicking the show more button", type=int)
+    # # Add an argument '-smt' or '--show_more_timeout' to specify the timeout for clicking the show more button
+    # parser.add_argument(
+    #     "-smt", "--show_more_timeout", help="Specify the timeout for clicking the show more button", type=int)
 
-    # Add an argument '-f' or '--file_path' to specify the file path to store the scraped data
-    parser.add_argument(
-        "-f", "--file_path", help="Specify the file path to store the scraped data", type=str)
+    # # Add an argument '-f' or '--file_path' to specify the file path to store the scraped data
+    # parser.add_argument(
+    #     "-f", "--file_path", help="Specify the file path to store the scraped data", type=str)
 
-    # Add an argument '-config' or '--config' to specify the config file path if you want to use a config file
-    # instead of specifying the arguments
-    parser.add_argument(
-        "-config", "--config",
-        help="Specify the config file path if you want to use a config file instead of specifying the arguments",
-        type=str)
+    # # Add an argument '-config' or '--config' to specify the config file path if you want to use a config file
+    # # instead of specifying the arguments
+    # parser.add_argument(
+    #     "-config", "--config",
+    #     help="Specify the config file path if you want to use a config file instead of specifying the arguments",
+    #     type=str)
 
-    args = parser.parse_args()
+    # args = parser.parse_args()
 
     # print("args ", args)
 
-    if args.config is not None:
-        config = importlib.import_module(
-            args.config)  # Load the config.py file
+    # if args.config is not None:
+    #     config = importlib.import_module(
+    #         args.config)  # Load the config.py file
 
-        # If the arguments are not specified, use the config file
-        if args.sid is None and config.sid is not None:
-            args.sid = config.sid
+    #     # If the arguments are not specified, use the config file
+    #     if args.sid is None and config.sid is not None:
+    #         args.sid = config.sid
 
-        if args.testing is None and config.testing is not None:
-            args.testing = config.testing
+    #     if args.testing is None and config.testing is not None:
+    #         args.testing = config.testing
 
-        if config.page_reload_timeout is not None and args.page_reload_timeout is None:
-            args.page_reload_timeout = config.page_reload_timeout
+    #     if config.page_reload_timeout is not None and args.page_reload_timeout is None:
+    #         args.page_reload_timeout = config.page_reload_timeout
 
-        if args.show_more_timeout is None and config.show_more_timeout is not None:
-            args.show_more_timeout = config.show_more_timeout
+    #     if args.show_more_timeout is None and config.show_more_timeout is not None:
+    #         args.show_more_timeout = config.show_more_timeout
 
-        if args.file_path is None and config.file_path is not None:
-            args.file_path = config.file_path
+    #     if args.file_path is None and config.file_path is not None:
+    #         args.file_path = config.file_path
 
     # Required arguments check
-    if args.sid is None:
-        logging.error("No RMP school id specified.")
-        logging.error("Please specify the RMP school id using the -s or --sid argument.")
-        logging.error("Alternatively, you can specify the RMP school id in the config.py file.")
-        exit(1)
+    # if args.sid is None:
+    #     logging.error("No RMP school id specified.")
+    #     logging.error("Please specify the RMP school id using the -s or --sid argument.")
+    #     logging.error("Alternatively, you can specify the RMP school id in the config.py file.")
+    #     exit(1)
 
-    if args.testing is not None and args.testing:
-        logging.debug("----------------------TESTING-----------------------")
-        start = time.time()
-        logging.debug("Arguments:")
-        logging.debug(f"sid: {args.sid}")
-        logging.debug(f"testing: ", args.testing)
-        logging.debug(f"page_reload_timeout: {args.page_reload_timeout}")
-        logging.debug(f"show_more_timeout: {args.show_more_timeout}")
-        logging.debug(f"file_path: {args.file_path}")
+    # if args.testing is not None and args.testing:
+    #     logging.debug("----------------------TESTING-----------------------")
+    #     start = time.time()
+    #     logging.debug("Arguments:")
+    #     logging.debug(f"sid: {args.sid}")
+    #     logging.debug(f"testing: ", args.testing)
+    #     logging.debug(f"page_reload_timeout: {args.page_reload_timeout}")
+    #     logging.debug(f"show_more_timeout: {args.show_more_timeout}")
+    #     logging.debug(f"file_path: {args.file_path}")
 
-    RateMyProf = RateMyProf(args.sid)
-    RateMyProf.scrape_professors(args)
+    
+    # RateMyProf.scrape_professors(args)
 
-    if args.testing:
-        end = time.time()
-        logging.debug(f"Finished in {end - start} seconds.")
+    # if args.testing:
+    #     end = time.time()
+    #     logging.debug(f"Finished in {end - start} seconds.")
