@@ -21,22 +21,18 @@ from selenium.webdriver.common.by import By  # Find elements by
 
 from selenium import webdriver 
 from selenium.webdriver.chrome.service import Service 
-from selenium.webdriver.chrome.options import Options
-# from selenium.webdriver.support.ui import WebDriverWait  # Wait for elements to load
-# from selenium.webdriver.support import expected_conditions as EC  # Expected conditions
-# from selenium.common.exceptions import TimeoutException, NoSuchElementException  # Misc. exceptions
+from selenium.webdriver.support.ui import WebDriverWait  # Wait for elements to load
+from selenium.webdriver.support import expected_conditions as EC  # Expected conditions
+from selenium.common.exceptions import TimeoutException, NoSuchElementException  # Misc. exceptions
 
 # Global
 const_rmp_search_url = 'https://www.ratemyprofessors.com/search/professors' # RMP professor search URL
-# const_rmp_search_url = 'https://www.ratemyprofessors.com/search/professors/{sid}?q=*'  # RMP professor search URL
 
 class RMPSchool:
     """
     Represents an instance of a school listed on RateMyProfessors.com, contains functions to instantiate School
     attributes, and supports and export to static JSON dump.
     """
-
-    # logging.basicConfig(level=logging.DEBUG, format='%(asctime)s:%(levelname)s:%(message)s')  # Basic config to logs
 
     def __init__(self, school_id):
         """
@@ -48,7 +44,7 @@ class RMPSchool:
         
         # Instantiate Chrome Options
         self.options = webdriver.ChromeOptions()
-        # self.options.add_argument('--headless')
+        self.options.add_argument('--headless')
         self.options.add_argument('--ignore-certificate-errors')
         self.options.add_argument('--ignore-ssl-errors')
         self.options.add_argument('log-level=3')
@@ -62,9 +58,20 @@ class RMPSchool:
         
         # Set attributes for the School
         # self.school_name = self.get_school_name()
-        self.get_num_professors = self.get_num_professors()
-        print(self.get_num_professors)
-        
+        self.num_professors = self.get_num_professors()
+        self.professors_list = []
+        self.get_professors_list()
+        self.dump_professors_list_to_csv('professors.csv')
+    
+    def dump_professors_list_to_csv(self, file_path):
+        """Dumps the professors list to a CSV file.
+        :param file_path (str): The file path to store the CSV file.
+        """
+        with open(file_path, 'w') as f:
+            f.write('name,department,rating,num_ratings,would_take_again_pct,level_of_difficulty\n')
+            for professor in self.professors_list:
+                f.write(f"{professor.name},{professor.department},{professor.rating},{professor.num_ratings},{professor.would_take_again_pct},{professor.level_of_difficulty}\n")
+    
     def get_school_name(self):
         """Fetches the school name from the professors search endpoint.
         :returns school_name (str): The full school name corresponding to the SID.
@@ -83,289 +90,106 @@ class RMPSchool:
         num_professors = search_results_header_id.text.split('professors')[0].strip()
         return num_professors
 
-    def scrape_professors(self, args):
+    def get_professors_list(self):
+        """Fetches the list of professors from the professors search endpoint.
         """
-        Scrapes all professors from the school with the given school_id and populates a JSON file with the data.
-        Return: true if successful, false if not.
-        """
-        testing = args.testing  # Testing mode
 
-        if testing:
-            # logging.debug("-----------------scrape_professors()----------------")
+        # Find the show more button
+        Xpath = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[4]/button'
+        show_more_button = WebDriverWait(self.driver, 10).until(EC.visibility_of_element_located((By.XPATH, Xpath)))
 
-            # logging.warning(f"Scraping professors from RateMyProfessors.com at \nURL: {self.rmp_professors_endpoint}")
-            # logging.info(f"University SID: {self.school_id}")
-            start = time.time()
-
-        num_profs = 0  # Number of professors
-
-        # Reload page until the number of professors is not 0 (RMP error)
-        timeout = time.time()
+        # Iterate through the eight teachers listed on the page
+        professor_idx = 0
         while True:
-            self.driver = webdriver.Chrome()
-            self.driver.get(self.rmp_professors_endpoint)  # Load the URL
-            num_profs = self.num_professors(testing)  # Get the number of professors
-
-            # If the number of professors is not 0, break out of the loop.
-            if num_profs != 0:
-                break
-            # If the number of professors is 0, close the driver and try again.
-            else:
-                self.driver.quit()  # Close the driver
-
-                # If PAGE RELOAD TIMEOUT option is set
-                if args.page_reload_timeout is not None:
-                    # If PAGE RELOAD TIMEOUT has been reached, return false.
-                    if timeout - time.time() >= args.page_reload_timeout:
-                        if testing:
-                            logging.critical(
-                                "PAGE RELOAD TIMEOUT reached waiting for num_professors(). Returning False.")
-                        return False
-
-        if testing:
-            logging.debug("-------------scrape_professors() cont.--------------")
-
-        school_name_xpath = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[1]/div/h1/span/b'  # Xpath for the
-        # school name
-        school_name = self.driver.find_element(By.XPATH, school_name_xpath).get_attribute(
-            'innerHTML')  # Find the school name
-        if testing:
-            logging.info("School name: ", school_name, "\n")
-        # Click the show more button to load all professors
-
-        times_pressed = 0  # Number of times the show more button has been pressed
-        timeout_show_more = time.time()  # Timeout for show more button
-        show_more_button_xpath = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[4]/button'
-        while self.driver.find_elements(By.XPATH, show_more_button_xpath):
             try:
-                # Show more button xpath
+                professor_idx += 1
+                new_professor_Xpath = f"//*[@id='root']/div/div/div[4]/div[1]/div[1]/div[3]/a[{professor_idx}]"
+                new_professor_text = self.driver.find_element(By.XPATH, new_professor_Xpath).text
+                professor_attr_list = new_professor_text.split('\n')
+                new_prof_obj = RMPProfessor(professor_attr_list)
+                self.professors_list.append(new_prof_obj)
+                print(new_prof_obj)
+                
+                if professor_idx % 8 == 0:
+                    self.driver.execute_script("arguments[0].click();", show_more_button)
+                    show_more_button = WebDriverWait(self.driver, 20).until(EC.visibility_of_element_located((By.XPATH, Xpath)))
+                    time.sleep(3)
 
-                # Wait for the show more button to be clickable, then click it.
-                self.driver.execute_script("arguments[0].click();", WebDriverWait(
-                    self.driver, 20).until(EC.element_to_be_clickable((By.XPATH, show_more_button_xpath))))
-
-                times_pressed += 1  # Increment the number of times the show more button has been pressed
-                if testing:
-                    logging.info(f"Clicking 'Show More' button {times_pressed} times.")
-
-            except TimeoutException as e:
-                logging.error(f"TimeoutException: {e}")
-
-            except IndexError as e:
-                logging.error(f"IndexError: {e}")
-
-        if testing:
-            logging.info(f"Done pressing 'Show More' button (pressed {times_pressed} times in "
-                         f"{time.time() - timeout_show_more} seconds.)...\n")
-
-        # If the file path is specified, use that file path. Otherwise, use the default file path.
-        if args.file_path is not None:
-            file_path = args.file_path
-        else:
-            file_path = 'profs_from_' + school_name.replace(" ", "") + '.json'
-
-        # If the destination file exists and is not empty, clear the file
-        with open(file_path, 'a') as f:
-            if testing:
-                logging.warning(f"Creating file: '{file_path}'...")
-            if os.stat(file_path).st_size != 0:
-                logging.info(f"'{file_path}' already exists. Clearing file...")
-                f.truncate(0)
-                if testing:
-                    logging.info("File cleared.\n")
-
-        # Click the show more button until all professors are shown
-        for i in range(1, num_profs):
-            all_prof_dict = {}  # Dictionary to store all professor data
-            prof_dict = {
-                "Name": "",
-                "School": "",
-                "Department": "",
-                "Rating": "",
-                "NumRatings": "",
-                "Difficulty": "",
-                "WouldTakeAgain": ""
-            }
-            try:
-                # Xpath to the unique professor card
-                prof_card_div = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[3]/a[' + str(
-                    i) + ']'
-
-                # 1. Professor's School
-                # Xpath to the professor's school
-                prof_school_xpath = prof_card_div + '/div/div[2]/div[2]/div[2]'
-                # Find the professor's school
-                prof_dict['School'] = self.driver.find_element(
-                    By.XPATH, prof_school_xpath).get_attribute('innerHTML')
-
-                # If the professor's school is not the same as the school name corresponding to the school_id,
-                # skip the professor.
-                if prof_dict['School'] != school_name:
+            except Exception as e:
+                try:
+                    self.driver.execute_script("arguments[0].click();", show_more_button)
+                    show_more_button = WebDriverWait(self.driver, 20).until(EC.visibility_of_element_located((By.XPATH, Xpath)))
+                    time.sleep(3)
+                    new_professor_Xpath = f"//*[@id='root']/div/div/div[4]/div[1]/div[1]/div[3]/a[{professor_idx}]"
+                    new_professor_text = self.driver.find_element(By.XPATH, new_professor_Xpath).text
+                    professor_attr_list = new_professor_text.split('\n')
+                    new_prof_obj = RMPProfessor(professor_attr_list)
+                    self.professors_list.append(new_prof_obj)
+                    print(new_prof_obj)
                     continue
-
-                # 2. Professor's Rating
-                # Xpath to the professor's rating
-                prof_rating_xpath = prof_card_div + '/div/div[1]/div/div[2]'
-                # Find the professor rating card
-                prof_dict['Rating'] = self.driver.find_element(
-                    By.XPATH, prof_rating_xpath).get_attribute('innerHTML')
-
-                # 3. Professor's Number of Ratings
-                # Xpath to the professor's number of ratings
-                prof_num_rating_xpath = prof_card_div + \
-                                        '/div/div[1]/div/div[3]'
-                # Find the professor's number of ratings
-                prof_dict['NumRatings'] = self.driver.find_element(
-                    By.XPATH, prof_num_rating_xpath).get_attribute('innerHTML')
-
-                # 4. Professor's Name
-                # Xpath to the professor's name
-                prof_name_xpath = prof_card_div + '/div/div[2]/div[1]'
-                # Find the professor's name
-                prof_dict['Name'] = self.driver.find_element(
-                    By.XPATH, prof_name_xpath).get_attribute('innerHTML')
-
-                # 5. Professor's Department
-                # Xpath to the professor's department
-                prof_department_xpath = prof_card_div + \
-                                        '/div/div[2]/div[2]/div[1]'
-                # Find the professor's department
-                prof_dict['Department'] = self.driver.find_element(
-                    By.XPATH, prof_department_xpath).get_attribute('innerHTML')
-
-                # 6. Professor's Difficulty
-                # Xpath to the professor's Difficulty
-                prof_difficulty_xpath = prof_card_div + \
-                                        '/div/div[2]/div[3]/div[3]/div'
-                # Find the professor's Difficulty
-                prof_dict['Difficulty'] = self.driver.find_element(
-                    By.XPATH, prof_difficulty_xpath).get_attribute('innerHTML')
-
-                # 7. Professor's Would Take Again
-                # Xpath to the professor's Would Take Again
-                prof_WTA_xpath = prof_card_div + \
-                                 '/div/div[2]/div[3]/div[1]/div'
-                # Find the professor's Difficulty
-                prof_dict['WouldTakeAgain'] = self.driver.find_element(
-                    By.XPATH, prof_WTA_xpath).get_attribute('innerHTML')
-
-                all_prof_dict[i] = prof_dict
-
-                all_prof_json = json.dumps(all_prof_dict)
-
-                # Write to file in JSON format 'all-professors.json'
-                with open(file_path, 'a') as f:
-                    f.write(all_prof_json)  # Write the JSON to the file
-                    # Add a comma and newline to separate each professor
-                    f.write(",\n")
-
-            except NoSuchElementException as e:
-                # if testing:
-                #     logging.critical(
-                #         f"Encountered NoSuchElementException while scraping professor data at index {i}. No longer "
-                #         f"scraping professor data.")
-                #     # print("Error: ", e)
-                break
-
-        self.driver.close()
-        self.driver.quit()
-
-        if testing:
-            end = time.time()
-            # logging.info(f"{i - 1} professors scraped and written to, '{file_path}'.")
-            # logging.info(f"scrape_professors() finished in {end - start} seconds.")
-            # logging.info("----------------------------------------------------")
-
-        return True
-
-def str2bool(v):
-    if isinstance(v, bool):
-        return v
-    if v.lower() in ('yes', 'true', 't', 'y', '1'):
-        return True
-    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
-        return False
-    else:
-        raise argparse.ArgumentTypeError('Boolean value expected.')
+                except Exception as e:
+                    print(e)
+                    break
+class RMPProfessor:
+    def __init__(self, professor_attr_list):
+        self.name = None
+        self.department = None
+        self.rating = None
+        self.num_ratings = None
+        self.would_take_again_pct = None
+        self.level_of_difficulty = None
+        self.get_attr_from_list(professor_attr_list)
+        
+    def get_attr_from_list(self, professor_attr_list):
+        self.name = professor_attr_list[3]
+        self.department = professor_attr_list[4]
+        self.rating = professor_attr_list[1]
+        self.num_ratings = professor_attr_list[2].split(' ')[0]
+        self.would_take_again_pct = professor_attr_list[6]
+        self.level_of_difficulty = professor_attr_list[8]
+        
+    def __str__(self):
+        return str(self.to_dict())
+        
+    def to_dict(self):
+        return {
+            'name': self.name,
+            'department': self.department,
+            'rating': self.rating,
+            'num_ratings': self.num_ratings,
+            'would_take_again_pct': self.would_take_again_pct,
+            'level_of_difficulty': self.level_of_difficulty
+        }
 
 if __name__ == "__main__":
-    RateMyProf = RMPSchool(config.sid)
 
-    # # Command line argument parser
-    # parser = argparse.ArgumentParser()
+    # Command line argument parser
+    parser = argparse.ArgumentParser()
 
-    # # Add an argument '-t' or '--testing' to run the program in testing mode
-    # parser.add_argument(
-    #     "-t", "--testing", help="Run the program in testing mode", type=str2bool, nargs='?',
-    #     const=True)
+    # Add an argument '-s' or '--sid' to specify the RMP school id
+    parser.add_argument(
+        "-s", "--sid", help="Specify the RMP school id", type=int)
 
-    # # Add an argument '-s' or '--sid' to specify the RMP school id
-    # parser.add_argument(
-    #     "-s", "--sid", help="Specify the RMP school id", type=int)
+    # Add an argument '-f' or '--file_path' to specify the file path to store the scraped data
+    parser.add_argument(
+        "-f", "--file_path", help="Specify the file path to store the scraped data", type=str)
 
-    # # Add an argument '-prt' or '--page_reload_timeout' to specify the timeout for reloading the RMP page
-    # parser.add_argument(
-    #     "-prt", "--page_reload_timeout", help="Specify the timeout for reloading the RMP page", type=int)
+    # Add an argument '-config' or '--config' to specify the config file path if you want to use a config file
+    # instead of specifying the arguments
+    parser.add_argument(
+        "-config", "--config",
+        help="Specify the config file path if you want to use a config file instead of specifying the arguments",
+        type=str)
 
-    # # Add an argument '-smt' or '--show_more_timeout' to specify the timeout for clicking the show more button
-    # parser.add_argument(
-    #     "-smt", "--show_more_timeout", help="Specify the timeout for clicking the show more button", type=int)
+    args = parser.parse_args()
 
-    # # Add an argument '-f' or '--file_path' to specify the file path to store the scraped data
-    # parser.add_argument(
-    #     "-f", "--file_path", help="Specify the file path to store the scraped data", type=str)
+    if args.config is not None:
+        # If the arguments are not specified, use the config file
+        if args.sid is None and config.sid is not None:
+            args.sid = config.sid
 
-    # # Add an argument '-config' or '--config' to specify the config file path if you want to use a config file
-    # # instead of specifying the arguments
-    # parser.add_argument(
-    #     "-config", "--config",
-    #     help="Specify the config file path if you want to use a config file instead of specifying the arguments",
-    #     type=str)
+        if args.file_path is None and config.file_path is not None:
+            args.file_path = config.file_path
 
-    # args = parser.parse_args()
-
-    # print("args ", args)
-
-    # if args.config is not None:
-    #     config = importlib.import_module(
-    #         args.config)  # Load the config.py file
-
-    #     # If the arguments are not specified, use the config file
-    #     if args.sid is None and config.sid is not None:
-    #         args.sid = config.sid
-
-    #     if args.testing is None and config.testing is not None:
-    #         args.testing = config.testing
-
-    #     if config.page_reload_timeout is not None and args.page_reload_timeout is None:
-    #         args.page_reload_timeout = config.page_reload_timeout
-
-    #     if args.show_more_timeout is None and config.show_more_timeout is not None:
-    #         args.show_more_timeout = config.show_more_timeout
-
-    #     if args.file_path is None and config.file_path is not None:
-    #         args.file_path = config.file_path
-
-    # Required arguments check
-    # if args.sid is None:
-    #     logging.error("No RMP school id specified.")
-    #     logging.error("Please specify the RMP school id using the -s or --sid argument.")
-    #     logging.error("Alternatively, you can specify the RMP school id in the config.py file.")
-    #     exit(1)
-
-    # if args.testing is not None and args.testing:
-    #     logging.debug("----------------------TESTING-----------------------")
-    #     start = time.time()
-    #     logging.debug("Arguments:")
-    #     logging.debug(f"sid: {args.sid}")
-    #     logging.debug(f"testing: ", args.testing)
-    #     logging.debug(f"page_reload_timeout: {args.page_reload_timeout}")
-    #     logging.debug(f"show_more_timeout: {args.show_more_timeout}")
-    #     logging.debug(f"file_path: {args.file_path}")
-
-    
-    # RateMyProf.scrape_professors(args)
-
-    # if args.testing:
-    #     end = time.time()
-    #     logging.debug(f"Finished in {end - start} seconds.")
+    # Instantiate the RMPSchool object
+    rmp_school = RMPSchool(args.sid)
