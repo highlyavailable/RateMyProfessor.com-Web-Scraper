@@ -51,15 +51,14 @@ class RMPSchool:
         # self.options.add_argument('--headless')
         self.options.add_argument('--ignore-certificate-errors')
         self.options.add_argument('--ignore-ssl-errors')
-        self.options.add_argument('--ignore-certificate-errors-spki-list')
         self.options.add_argument('log-level=3')
         self.options.add_argument("start-maximized")
         self.options.add_argument("--allow-running-insecure-content")
         self.options.add_experimental_option('excludeSwitches', ['enable-logging'])
 
         # Create web driver
-        self.driver = webdriver.Chrome()              # Instantiate the webdriver object
-        self.driver.get(self.rmp_professors_endpoint) # Load the RMP professors search page
+        self.driver = webdriver.Chrome(options=self.options) # Instantiate the webdriver object with the options
+        self.driver.get(self.rmp_professors_endpoint)        # Load the RMP professors search page
         
         # Set attributes for the School
         # self.school_name = self.get_school_name()
