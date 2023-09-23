@@ -57,17 +57,19 @@ class RMPSchool:
         self.driver.get(self.rmp_professors_endpoint)        # Load the RMP professors search page
         
         # Set attributes for the School
-        # self.school_name = self.get_school_name()
+        self.school_name = self.get_school_name()
         self.num_professors = self.get_num_professors()
         self.professors_list = []
         self.get_professors_list()
-        self.dump_professors_list_to_csv('professors.csv')
+        
+        school_name_fp = self.school_name.replace(' ', '').replace('-', '_').lower()
+        self.dump_professors_list_to_csv(os.path.join('static_data', f'{school_name_fp}_professors.csv'))
     
     def dump_professors_list_to_csv(self, file_path):
         """Dumps the professors list to a CSV file.
         :param file_path (str): The file path to store the CSV file.
         """
-        with open(file_path, 'w') as f:
+        with open(file_path, 'x') as f:
             f.write('name,department,rating,num_ratings,would_take_again_pct,level_of_difficulty\n')
             for professor in self.professors_list:
                 f.write(f"{professor.name},{professor.department},{professor.rating},{professor.num_ratings},{professor.would_take_again_pct},{professor.level_of_difficulty}\n")
@@ -114,6 +116,7 @@ class RMPSchool:
                     self.driver.execute_script("arguments[0].click();", show_more_button)
                     show_more_button = WebDriverWait(self.driver, 20).until(EC.visibility_of_element_located((By.XPATH, Xpath)))
                     time.sleep(3)
+                    break
 
             except Exception as e:
                 try:
