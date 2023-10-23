@@ -15,18 +15,21 @@ import logging
 import config
 
 # Selenium imports
-from selenium import webdriver # Webdriver
+from selenium import webdriver  # Webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By  # Find elements by
 
-from selenium import webdriver 
-from selenium.webdriver.chrome.service import Service 
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait  # Wait for elements to load
 from selenium.webdriver.support import expected_conditions as EC  # Expected conditions
-from selenium.common.exceptions import TimeoutException, NoSuchElementException  # Misc. exceptions
+# Misc. exceptions
+from selenium.common.exceptions import TimeoutException, NoSuchElementException, StaleElementReferenceException
 
 # Global
-const_rmp_search_url = 'https://www.ratemyprofessors.com/search/professors' # RMP professor search URL
+# RMP professor search URL
+const_rmp_search_url = 'https://www.ratemyprofessors.com/search/professors'
+
 
 class RMPSchool:
     """
@@ -39,47 +42,63 @@ class RMPSchool:
         Constructor for RMPSchool class.
         :param school_id (int): The unique school ID that RateMyProfessor assigns to identify each University.
         """
+        print("Starting Init")
         self.school_id = school_id                                               # Parameter for the school ID
-        self.rmp_professors_endpoint = f"{const_rmp_search_url}/{school_id}?q=*" # Build request endpoint for the school ID
-        
+        # Build request endpoint for the school ID
+        self.rmp_professors_endpoint = f"{const_rmp_search_url}/{school_id}?q=*"
+
         # Instantiate Chrome Options
         self.options = webdriver.ChromeOptions()
-        self.options.add_argument('--headless')
+        # self.options.add_argument('--headless')
         self.options.add_argument('--ignore-certificate-errors')
         self.options.add_argument('--ignore-ssl-errors')
         self.options.add_argument('log-level=3')
         self.options.add_argument("start-maximized")
         self.options.add_argument("--allow-running-insecure-content")
-        self.options.add_experimental_option('excludeSwitches', ['enable-logging'])
+        self.options.add_experimental_option(
+            'excludeSwitches', ['enable-logging'])
 
         # Create web driver
-        self.driver = webdriver.Chrome(options=self.options) # Instantiate the webdriver object with the options
-        self.driver.get(self.rmp_professors_endpoint)        # Load the RMP professors search page
+        # Instantiate the webdriver object with the options
+        self.driver = webdriver.Chrome(options=self.options)
+        # Load the RMP professors search page
+        self.driver.get(self.rmp_professors_endpoint)\
         
+        # Reference to the show more button, used in multiple places 
+        self.show_more_button = ""
+        # Variable to indicate completion, can be set in various places 
+        self.scrape_complete = False
+
         # Set attributes for the School
         self.school_name = self.get_school_name()
         self.num_professors = self.get_num_professors()
         self.professors_list = []
         self.get_professors_list()
-        
-        school_name_fp = self.school_name.replace(' ', '').replace('-', '_').lower()
-        self.dump_professors_list_to_csv(os.path.join('static_data', f'{school_name_fp}_professors.csv'))
-    
+
+        school_name_fp = self.school_name.replace(
+            ' ', '').replace('-', '_').lower()
+        self.dump_professors_list_to_csv(os.path.join(
+            'static_data', f'{school_name_fp}_professors.csv'))
+
     def dump_professors_list_to_csv(self, file_path):
         """Dumps the professors list to a CSV file.
         :param file_path (str): The file path to store the CSV file.
         """
+        print("Starting Dump to CSV")
         with open(file_path, 'x') as f:
-            f.write('name,department,rating,num_ratings,would_take_again_pct,level_of_difficulty\n')
+            f.write(
+                'name,department,rating,num_ratings,would_take_again_pct,level_of_difficulty\n')
             for professor in self.professors_list:
                 f.write(f"{professor.name},{professor.department},{professor.rating},{professor.num_ratings},{professor.would_take_again_pct},{professor.level_of_difficulty}\n")
-    
+
     def get_school_name(self):
         """Fetches the school name from the professors search endpoint.
         :returns school_name (str): The full school name corresponding to the SID.
         """
+        print("Starting Get School Name")
         Xpath = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[1]/div/h1/span/b'  # RMP error message Xpath
-        school_name_element = self.driver.find_element(by=By.XPATH, value=Xpath)  # Find the error message element'
+        school_name_element = self.driver.find_element(
+            by=By.XPATH, value=Xpath)  # Find the error message element'
         school_name = school_name_element.text.strip()
         return school_name
 
@@ -87,52 +106,188 @@ class RMPSchool:
         """Fetches the number of professors from the professors search endpoint.
         :returns num_professors (int): The number of professors listed on the professors search endpoint.
         """
+        print("Starting get num Professors")
         Xpath = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[1]/div'  # RMP error message Xpath
-        search_results_header_id = self.driver.find_element(By.XPATH, Xpath)  # Find the error message element
-        num_professors = search_results_header_id.text.split('professors')[0].strip()
+        search_results_header_id = self.driver.find_element(
+            By.XPATH, Xpath)  # Find the error message element
+        num_professors = search_results_header_id.text.split('professors')[
+            0].strip()
         return num_professors
+
+    def gen_next_professor_element(self, idx):
+        try:
+            new_professor_Xpath = f"//*[@id='root']/div/div/div[4]/div[1]/div[1]/div[3]/a[{idx}]"
+            new_prof_elem =  self.driver.find_elements(
+                        By.XPATH, new_professor_Xpath)[0]
+            return new_prof_elem
+        except IndexError as  ine:
+            print("New Professor Element not found - Index Path")
+            print("Pressing button and retrying")
+
+            if self.show_more_button == "": 
+                self.scrape_complete = True
+                return 1
+            if self.push_show_more_button() == "": 
+                self.scrape_complete = True
+                return 1
+
+            new_professor_Xpath = f"//*[@id='root']/div/div/div[4]/div[1]/div[1]/div[3]/a[{idx}]"
+            new_prof_elem =  self.driver.find_element(
+                        By.XPATH, new_professor_Xpath)
+            return new_prof_elem
+        except NoSuchElementException as nse:
+            print("New Professor Element not found")
+            print("Pressing button and retrying")
+
+            if self.show_more_button == "": 
+                self.scrape_complete = True
+                return 1
+            if self.push_show_more_button() == "": 
+                self.scrape_complete = True
+                return 1
+
+            new_professor_Xpath = f"//*[@id='root']/div/div/div[4]/div[1]/div[1]/div[3]/a[{idx}]"
+            new_prof_elem =  self.driver.find_element(
+                        By.XPATH, new_professor_Xpath)
+            return new_prof_elem
+        except Exception as e:
+            print(f"Gen_Next_Professor_Element: Some other error occured - \n {e.msg}")
+
+
+    def set_show_more_button(self):
+        """Find the Show More button, and attatches an ID to it to find it easily"""
+        try:
+            Xpath = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[4]/button'
+            self.show_more_button = WebDriverWait(self.driver, 10).until(
+                EC.visibility_of_element_located((By.XPATH, Xpath)))
+            self.driver.execute_script(
+                            "arguments[0].setAttribute('id', arguments[1]);", self.show_more_button, "RMP_Scrape")
+            # For Testing: Ensures the script found the button, and will be visible if its destroyed/replaced
+            self.driver.execute_script(
+                            "arguments[0].setAttribute('style', arguments[1]);", self.show_more_button, "background:yellow; color: Red;")
+        except Exception as e:
+            print(f"Set Show More Button: Some error occurred \n {e.msg}")
+            raise e
+
+    def push_show_more_button(self, mod_eight=False):
+        """Push the show_more_button
+            mod_eight will only be set where the function is called 
+            after reaching a multiple of 8
+        """
+        if self.show_more_button == "": return ""
+        try: 
+            print("Searching for more Professors...")
+            self.driver.execute_script(
+                "arguments[0].click();", self.show_more_button)
+            self.show_more_button = ""
+            self.show_more_button = WebDriverWait(self.driver, 20).until(
+                EC.visibility_of_element_located((By.ID, "RMP_Scrape")))
+            time.sleep(3)
+        except StaleElementReferenceException as ser:
+            print("Stale Button Reference. Attempting to Relocate button...")
+            try:
+                self.set_show_more_button()
+                print("Searching for more Professors, Again...")
+                self.driver.execute_script(
+                    "arguments[0].click();", self.show_more_button)
+                self.show_more_button = ""
+                self.show_more_button = WebDriverWait(self.driver, 20).until(
+                    EC.visibility_of_element_located((By.ID, "RMP_Scrape")))
+                time.sleep(3)
+            except Exception as e:
+                print(f"Failed to Relocate element, other error occurred - {e.msg}")
+                print("Assuming scrape is complete")
+                if not mod_eight:
+                    #self.scrape_complete = True
+                    self.show_more_button = ""
+                    return ""
+                else: 
+                    self.show_more_button = ""
+                    return ""
+        except Exception as e:
+            print(f"Push SHow More Button: Some error occured - {e.msg}")
 
     def get_professors_list(self):
         """Fetches the list of professors from the professors search endpoint.
         """
 
-        # Find the show more button
-        Xpath = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[4]/button'
-        show_more_button = WebDriverWait(self.driver, 10).until(EC.visibility_of_element_located((By.XPATH, Xpath)))
+        print("Search Started!")
+        self.set_show_more_button()
 
         # Iterate through the eight teachers listed on the page
         professor_idx = 0
-        while True:
+        while not self.scrape_complete:
             try:
+                print("New Iteration started")
                 professor_idx += 1
-                new_professor_Xpath = f"//*[@id='root']/div/div/div[4]/div[1]/div[1]/div[3]/a[{professor_idx}]"
-                new_professor_text = self.driver.find_element(By.XPATH, new_professor_Xpath).text
+                new_professor_text = ""
+                #new_professor_Xpath = f"//*[@id='root']/div/div/div[4]/div[1]/div[1]/div[3]/a[{professor_idx}]"
+                new_prof_elem = self.gen_next_professor_element(professor_idx)
+
+                if new_prof_elem == 1: break
+
+                new_professor_text = new_prof_elem.text # has been changed
+                self.driver.execute_script(
+                        "arguments[0].setAttribute('style', arguments[1]);", new_prof_elem, "background:yellow; color: Red;")
+                
                 professor_attr_list = new_professor_text.split('\n')
                 new_prof_obj = RMPProfessor(professor_attr_list)
                 self.professors_list.append(new_prof_obj)
-                print(new_prof_obj)
-                
-                if professor_idx % 8 == 0:
-                    self.driver.execute_script("arguments[0].click();", show_more_button)
-                    show_more_button = WebDriverWait(self.driver, 20).until(EC.visibility_of_element_located((By.XPATH, Xpath)))
-                    time.sleep(3)
-                    break
+                # print(new_prof_obj)
+                print(f"{professor_idx} Professors Fetched")
 
-            except Exception as e:
-                try:
-                    self.driver.execute_script("arguments[0].click();", show_more_button)
-                    show_more_button = WebDriverWait(self.driver, 20).until(EC.visibility_of_element_located((By.XPATH, Xpath)))
+                if professor_idx % 8 == 0:
+                    self.push_show_more_button(mod_eight=True)
                     time.sleep(3)
-                    new_professor_Xpath = f"//*[@id='root']/div/div/div[4]/div[1]/div[1]/div[3]/a[{professor_idx}]"
-                    new_professor_text = self.driver.find_element(By.XPATH, new_professor_Xpath).text
-                    professor_attr_list = new_professor_text.split('\n')
-                    new_prof_obj = RMPProfessor(professor_attr_list)
-                    self.professors_list.append(new_prof_obj)
-                    print(new_prof_obj)
                     continue
-                except Exception as e:
-                    print(e)
+
+                if professor_idx == self.num_professors:
+                    print("IDX Reached num professors")
+                    self.scrape_complete = True
+
+            except NoSuchElementException as e:
+                if new_professor_text == "":
+                    # Code Couldnt Find a new professor
+                    # Check if length of Professors List is same as total 
+                    if len(self.professors_list) == self.num_professors:
+                        print(f"Found all {self.professors_list.size} Professors")
+                        break
+                    # # If so, break, we're done
+                    elif self.show_more_button == "":
+                        print("Couldn't find show more button. Exiting...")
+                        break
+                    elif "Loading" in self.show_more_button.text :
+                        print("Tried to click while loading")
+                        while("Loading" in self.show_more_button.text):
+                            print("Waiting for button to finish loading...")
+                            self.show_more_button = self.driver.find_element(By.ID, "RMP_Scrape")
+                        self.driver.execute_script(
+                        "arguments[0].setAttribute('style', arguments[1]);", self.show_more_button, "background:yellow; color: Red;")
+                        self.driver.execute_script(
+                            "arguments[0].click();", self.show_more_button)
+                        self.show_more_button = ""
+                        self.show_more_button = WebDriverWait(self.driver, 20).until(
+                            EC.visibility_of_element_located((By.ID, "RMP_Scrape")))
+                        print(self.show_more_button)
+                        time.sleep(3)
+                        
+                    # if not
+                    # Check if button is there
+                    # if it's actually not there, finish out, somehing happened
+                    # Check if button says "Loading"
+                    # if so, spin until it says something else
+                    else:
+                        print(f"No Prof. Curr: {professor_idx}, try again \n Error was {e.msg}")
+                        
+                        professor_idx -= 1
+                        continue
+                else:
+                    # It couldn't find something else
+                    print("Could not find something else. Exiting...")
                     break
+            
+
+
 class RMPProfessor:
     def __init__(self, professor_attr_list):
         self.name = None
@@ -142,7 +297,7 @@ class RMPProfessor:
         self.would_take_again_pct = None
         self.level_of_difficulty = None
         self.get_attr_from_list(professor_attr_list)
-        
+
     def get_attr_from_list(self, professor_attr_list):
         self.name = professor_attr_list[3]
         self.department = professor_attr_list[4]
@@ -150,10 +305,10 @@ class RMPProfessor:
         self.num_ratings = professor_attr_list[2].split(' ')[0]
         self.would_take_again_pct = professor_attr_list[6]
         self.level_of_difficulty = professor_attr_list[8]
-        
+
     def __str__(self):
         return str(self.to_dict())
-        
+
     def to_dict(self):
         return {
             'name': self.name,
@@ -163,6 +318,7 @@ class RMPProfessor:
             'would_take_again_pct': self.would_take_again_pct,
             'level_of_difficulty': self.level_of_difficulty
         }
+
 
 if __name__ == "__main__":
 
