@@ -42,7 +42,6 @@ class RMPSchool:
         Constructor for RMPSchool class.
         :param school_id (int): The unique school ID that RateMyProfessor assigns to identify each University.
         """
-        print("Starting Init")
         self.school_id = school_id                                               # Parameter for the school ID
         # Build request endpoint for the school ID
         self.rmp_professors_endpoint = f"{const_rmp_search_url}/{school_id}?q=*"
@@ -84,7 +83,6 @@ class RMPSchool:
         """Dumps the professors list to a CSV file.
         :param file_path (str): The file path to store the CSV file.
         """
-        print("Starting Dump to CSV")
         with open(file_path, 'x') as f:
             f.write(
                 'name,department,rating,num_ratings,would_take_again_pct,level_of_difficulty\n')
@@ -95,7 +93,6 @@ class RMPSchool:
         """Fetches the school name from the professors search endpoint.
         :returns school_name (str): The full school name corresponding to the SID.
         """
-        print("Starting Get School Name")
         Xpath = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[1]/div/h1/span/b'  # RMP error message Xpath
         school_name_element = self.driver.find_element(
             by=By.XPATH, value=Xpath)  # Find the error message element'
@@ -106,7 +103,6 @@ class RMPSchool:
         """Fetches the number of professors from the professors search endpoint.
         :returns num_professors (int): The number of professors listed on the professors search endpoint.
         """
-        print("Starting get num Professors")
         Xpath = '//*[@id="root"]/div/div/div[4]/div[1]/div[1]/div[1]/div'  # RMP error message Xpath
         search_results_header_id = self.driver.find_element(
             By.XPATH, Xpath)  # Find the error message element
@@ -115,40 +111,32 @@ class RMPSchool:
         return num_professors
 
     def gen_next_professor_element(self, idx):
+        """
+        Fetches the next professor object using the IDX value for the XPath
+        If there is no next element, try pressing the show more button for more
+        If there's no show more button, we have finished
+        """
         try:
             new_professor_Xpath = f"//*[@id='root']/div/div/div[4]/div[1]/div[1]/div[3]/a[{idx}]"
             new_prof_elem =  self.driver.find_elements(
                         By.XPATH, new_professor_Xpath)[0]
             return new_prof_elem
-        except IndexError as  ine:
+        except (IndexError, NoSuchElementException) as  ine:
             print("New Professor Element not found - Index Path")
             print("Pressing button and retrying")
 
-            if self.show_more_button == "": 
+            # If the show more button is already gone
+            # or if, after trying to press it, we find out it's gone
+            # then we assume the scrape is complete
+            if self.show_more_button == "" or self.push_show_more_button() == "": 
                 self.scrape_complete = True
                 return 1
-            if self.push_show_more_button() == "": 
-                self.scrape_complete = True
-                return 1
-
+            
+            #If pressing the show more button worked, find the next element
             new_professor_Xpath = f"//*[@id='root']/div/div/div[4]/div[1]/div[1]/div[3]/a[{idx}]"
             new_prof_elem =  self.driver.find_element(
                         By.XPATH, new_professor_Xpath)
-            return new_prof_elem
-        except NoSuchElementException as nse:
-            print("New Professor Element not found")
-            print("Pressing button and retrying")
-
-            if self.show_more_button == "": 
-                self.scrape_complete = True
-                return 1
-            if self.push_show_more_button() == "": 
-                self.scrape_complete = True
-                return 1
-
-            new_professor_Xpath = f"//*[@id='root']/div/div/div[4]/div[1]/div[1]/div[3]/a[{idx}]"
-            new_prof_elem =  self.driver.find_element(
-                        By.XPATH, new_professor_Xpath)
+            
             return new_prof_elem
         except Exception as e:
             print(f"Gen_Next_Professor_Element: Some other error occured - \n {e.msg}")
@@ -162,9 +150,6 @@ class RMPSchool:
                 EC.visibility_of_element_located((By.XPATH, Xpath)))
             self.driver.execute_script(
                             "arguments[0].setAttribute('id', arguments[1]);", self.show_more_button, "RMP_Scrape")
-            # For Testing: Ensures the script found the button, and will be visible if its destroyed/replaced
-            self.driver.execute_script(
-                            "arguments[0].setAttribute('style', arguments[1]);", self.show_more_button, "background:yellow; color: Red;")
         except Exception as e:
             print(f"Set Show More Button: Some error occurred \n {e.msg}")
             raise e
@@ -184,7 +169,7 @@ class RMPSchool:
                 EC.visibility_of_element_located((By.ID, "RMP_Scrape")))
             time.sleep(3)
         except StaleElementReferenceException as ser:
-            print("Stale Button Reference. Attempting to Relocate button...")
+            # The reference to the button is stale, attempt to find it again
             try:
                 self.set_show_more_button()
                 print("Searching for more Professors, Again...")
@@ -195,15 +180,12 @@ class RMPSchool:
                     EC.visibility_of_element_located((By.ID, "RMP_Scrape")))
                 time.sleep(3)
             except Exception as e:
-                print(f"Failed to Relocate element, other error occurred - {e.msg}")
-                print("Assuming scrape is complete")
-                if not mod_eight:
-                    #self.scrape_complete = True
-                    self.show_more_button = ""
-                    return ""
-                else: 
-                    self.show_more_button = ""
-                    return ""
+                # Assume button has been taken out, meaning we're on the last page
+                # Set the show_more_button to an empty string
+                # and return an empty string
+                # To signal there is no more after this page
+                self.show_more_button = ""
+                return ""
         except Exception as e:
             print(f"Push SHow More Button: Some error occured - {e.msg}")
 
@@ -221,19 +203,15 @@ class RMPSchool:
                 print("New Iteration started")
                 professor_idx += 1
                 new_professor_text = ""
-                #new_professor_Xpath = f"//*[@id='root']/div/div/div[4]/div[1]/div[1]/div[3]/a[{professor_idx}]"
                 new_prof_elem = self.gen_next_professor_element(professor_idx)
 
                 if new_prof_elem == 1: break
 
-                new_professor_text = new_prof_elem.text # has been changed
-                self.driver.execute_script(
-                        "arguments[0].setAttribute('style', arguments[1]);", new_prof_elem, "background:yellow; color: Red;")
+                new_professor_text = new_prof_elem.text 
                 
                 professor_attr_list = new_professor_text.split('\n')
                 new_prof_obj = RMPProfessor(professor_attr_list)
                 self.professors_list.append(new_prof_obj)
-                # print(new_prof_obj)
                 print(f"{professor_idx} Professors Fetched")
 
                 if professor_idx % 8 == 0:
@@ -247,44 +225,19 @@ class RMPSchool:
 
             except NoSuchElementException as e:
                 if new_professor_text == "":
-                    # Code Couldnt Find a new professor
-                    # Check if length of Professors List is same as total 
-                    if len(self.professors_list) == self.num_professors:
-                        print(f"Found all {self.professors_list.size} Professors")
-                        break
-                    # # If so, break, we're done
-                    elif self.show_more_button == "":
-                        print("Couldn't find show more button. Exiting...")
-                        break
-                    elif "Loading" in self.show_more_button.text :
-                        print("Tried to click while loading")
-                        while("Loading" in self.show_more_button.text):
-                            print("Waiting for button to finish loading...")
-                            self.show_more_button = self.driver.find_element(By.ID, "RMP_Scrape")
-                        self.driver.execute_script(
-                        "arguments[0].setAttribute('style', arguments[1]);", self.show_more_button, "background:yellow; color: Red;")
-                        self.driver.execute_script(
-                            "arguments[0].click();", self.show_more_button)
-                        self.show_more_button = ""
-                        self.show_more_button = WebDriverWait(self.driver, 20).until(
-                            EC.visibility_of_element_located((By.ID, "RMP_Scrape")))
-                        print(self.show_more_button)
-                        time.sleep(3)
-                        
-                    # if not
-                    # Check if button is there
-                    # if it's actually not there, finish out, somehing happened
-                    # Check if button says "Loading"
-                    # if so, spin until it says something else
-                    else:
-                        print(f"No Prof. Curr: {professor_idx}, try again \n Error was {e.msg}")
-                        
-                        professor_idx -= 1
-                        continue
+                    # Could not find the professor element. 
+                    # set IDX back by 1 and try again                        
+                    professor_idx -= 1
+                    continue
                 else:
                     # It couldn't find something else
                     print("Could not find something else. Exiting...")
                     break
+            except Exception as e:
+                # a different error occurred
+                print(f"Error Occured while getting professor list:  {e.msg}")
+                break
+
             
 
 
