@@ -122,8 +122,8 @@ class RMPSchool:
                         By.XPATH, new_professor_Xpath)[0]
             return new_prof_elem
         except (IndexError, NoSuchElementException) as  ine:
-            print("New Professor Element not found - Index Path")
-            print("Pressing button and retrying")
+            #print("New Professor Element not found - Index Path")
+            #print("Pressing button and retrying")
 
             # If the show more button is already gone
             # or if, after trying to press it, we find out it's gone
@@ -151,7 +151,7 @@ class RMPSchool:
             self.driver.execute_script(
                             "arguments[0].setAttribute('id', arguments[1]);", self.show_more_button, "RMP_Scrape")
         except Exception as e:
-            print(f"Set Show More Button: Some error occurred \n {e.msg}")
+            #print(f"Set Show More Button: Some error occurred \n {e.msg}")
             raise e
 
     def push_show_more_button(self, mod_eight=False):
@@ -172,7 +172,7 @@ class RMPSchool:
             # The reference to the button is stale, attempt to find it again
             try:
                 self.set_show_more_button()
-                print("Searching for more Professors, Again...")
+                #print("Searching for more Professors, Again...")
                 self.driver.execute_script(
                     "arguments[0].click();", self.show_more_button)
                 self.show_more_button = ""
@@ -187,7 +187,8 @@ class RMPSchool:
                 self.show_more_button = ""
                 return ""
         except Exception as e:
-            print(f"Push SHow More Button: Some error occured - {e.msg}")
+            #print(f"Push SHow More Button: Some error occured - {e.msg}")
+            return 
 
     def get_professors_list(self):
         """Fetches the list of professors from the professors search endpoint.
