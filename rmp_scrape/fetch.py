@@ -48,7 +48,7 @@ class RMPSchool:
 
         # Instantiate Chrome Options
         self.options = webdriver.ChromeOptions()
-        # self.options.add_argument('--headless')
+        self.options.add_argument('--headless')
         self.options.add_argument('--ignore-certificate-errors')
         self.options.add_argument('--ignore-ssl-errors')
         self.options.add_argument('log-level=3')
@@ -201,7 +201,6 @@ class RMPSchool:
         professor_idx = 0
         while not self.scrape_complete:
             try:
-                print("New Iteration started")
                 professor_idx += 1
                 new_professor_text = ""
                 new_prof_elem = self.gen_next_professor_element(professor_idx)
@@ -213,7 +212,7 @@ class RMPSchool:
                 professor_attr_list = new_professor_text.split('\n')
                 new_prof_obj = RMPProfessor(professor_attr_list)
                 self.professors_list.append(new_prof_obj)
-                print(f"{professor_idx} Professors Fetched")
+                print(new_prof_obj)
 
                 if professor_idx % 8 == 0:
                     self.push_show_more_button(mod_eight=True)
