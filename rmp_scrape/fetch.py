@@ -84,9 +84,9 @@ class RMPSchool:
         :param file_path (str): The file path to store the CSV file.
         """
         # Remove the file if it exists. Error is thrown otherwise.
-        #if os.path.exists(file_path):
-         #   os.remove(file_path)
-        # Createa a new file to write to
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        # Create a a new file to write to
         with open(file_path, 'x') as f:
             f.write(
                 'name,department,rating,num_ratings,would_take_again_pct,level_of_difficulty\n')
