@@ -26,10 +26,12 @@ from selenium.webdriver.support import expected_conditions as EC  # Expected con
 # Misc. exceptions
 from selenium.common.exceptions import TimeoutException, NoSuchElementException, StaleElementReferenceException
 
+from rmp_statistics import rmp_stats
+
 # Global
 # RMP professor search URL
 const_rmp_search_url = 'https://www.ratemyprofessors.com/search/professors'
-
+const_print_stats = False
 
 class RMPSchool:
     """
@@ -78,11 +80,19 @@ class RMPSchool:
             ' ', '').replace('-', '_').lower()
         self.dump_professors_list_to_csv(os.path.join(
             'static_data', f'{school_name_fp}_professors.csv'))
+        
+        if const_print_stats:
+            rmp_stats(os.path.join(
+            'static_data', f'{school_name_fp}_professors.csv'), school_name_fp)
 
     def dump_professors_list_to_csv(self, file_path):
         """Dumps the professors list to a CSV file.
         :param file_path (str): The file path to store the CSV file.
         """
+        # Remove the file if it exists. Error is thrown otherwise.
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        # Create a a new file to write to
         with open(file_path, 'x') as f:
             f.write(
                 'name,department,rating,num_ratings,would_take_again_pct,level_of_difficulty\n')
@@ -286,6 +296,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "-f", "--file_path", help="Specify the file path to store the scraped data", type=str)
 
+    parser.add_argument(
+        "-t", "--statistics", help="Run and Print the statistics of the School", action='store_true')
+
     # Add an argument '-config' or '--config' to specify the config file path if you want to use a config file
     # instead of specifying the arguments
     parser.add_argument(
@@ -294,6 +307,8 @@ if __name__ == "__main__":
         type=str)
 
     args = parser.parse_args()
+    if args.statistics:
+        const_print_stats = True
 
     if args.config is not None:
         # If the arguments are not specified, use the config file
