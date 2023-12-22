@@ -229,7 +229,7 @@ class RMPSchool:
                     time.sleep(3)
                     continue
 
-                if professor_idx == self.num_professors:
+                if str(professor_idx) == self.num_professors:
                     print("IDX Reached num professors")
                     self.scrape_complete = True
 
