@@ -75,15 +75,16 @@ class RMPSchool:
         self.num_professors = self.get_num_professors()
         self.professors_list = []
         self.get_professors_list()
-
-        school_name_fp = self.school_name.replace(
-            ' ', '').replace('-', '_').lower()
-        self.dump_professors_list_to_csv(os.path.join(
-            'static_data', f'{school_name_fp}_professors.csv'))
+        
+        school_name_fp = self.school_name.replace(' ', '').replace('-', '_').lower()
+        script_directory = os.path.dirname(os.path.abspath(__file__))
+        filename = f'output_data\\{school_name_fp}_professors.csv'
+        full_path = os.path.join(script_directory, filename)
+            
+        self.dump_professors_list_to_csv(full_path)
         
         if const_print_stats:
-            rmp_stats(os.path.join(
-            'static_data', f'{school_name_fp}_professors.csv'), school_name_fp)
+            rmp_stats(full_path, school_name_fp)
 
     def dump_professors_list_to_csv(self, file_path):
         """Dumps the professors list to a CSV file.
